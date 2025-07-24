@@ -13,7 +13,8 @@ public class FireballProjectile : NetworkBehaviour
         if (health != null)
         {
             health.TakeDamage(fireballDamage);
-            NetworkServer.Destroy(gameObject);
+
         }
+        NetworkServer.Destroy(gameObject);
     }
 }
