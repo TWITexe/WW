@@ -12,6 +12,7 @@ public class FireballProjectile : NetworkBehaviour
         Health health = other.GetComponent<Health>();
         if (health != null)
         {
+            Debug.Log(fireballDamage);
             health.TakeDamage(fireballDamage);
 
         }

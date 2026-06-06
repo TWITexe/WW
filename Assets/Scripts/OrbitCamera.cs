@@ -41,17 +41,9 @@ public class OrbitCamera : MonoBehaviour
         float mouseX = Input.GetAxis("Mouse X") * rotSpeed * 3;
         float mouseY = Input.GetAxis("Mouse Y") * rotSpeed * 3;
 
+        rotY += mouseX;
+        rotX -= mouseY;
 
-
-        if (Mathf.Approximately(horInput, 0))
-        {
-            rotY += mouseX;
-            rotX -= mouseY;
-        }
-        else
-        {
-            rotY += horInput * rotSpeed;
-        }
 
         rotX = Mathf.Clamp(rotX, minVerticalAngle, maxVerticalAngle);
 

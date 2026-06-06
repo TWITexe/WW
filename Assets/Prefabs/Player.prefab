@@ -276,13 +276,13 @@ CharacterController:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Height: 1.99
+  m_Height: 2.97
   m_Radius: 0.5
   m_SlopeLimit: 45
   m_StepOffset: 0.3
   m_SkinWidth: 0.08
   m_MinMoveDistance: 0.001
-  m_Center: {x: 0, y: 0, z: 0}
+  m_Center: {x: 0, y: 0.48, z: 0}
 --- !u!114 &3986584028243047586
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -341,9 +341,9 @@ MonoBehaviour:
   terminalVelocity: -10
   minFall: -1.5
   groundCheckDistance: 12
-  jumpCooldown: 1
   slowAfterJumpTime: 0.3
   speedMultiplier: 0.5
+  jumpCooldown: 1
 --- !u!114 &3501180896826027828
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -403,6 +403,7 @@ MonoBehaviour:
   syncDirection: 0
   syncMode: 0
   syncInterval: 0
+  playerCamera: {fileID: 866406066030041993}
   firePoint: {fileID: 7011369226501753863}
   fireballPrefab: {fileID: 1039375334692456629, guid: b3924b7de79e7624eba474be490c5f14, type: 3}
   windFlowPrefab: {fileID: 3648033766416177398, guid: 8e5ec8a79917b3945a69bb0370eeb6cb, type: 3}
@@ -448,7 +449,6 @@ GameObject:
   - component: {fileID: 6259007076191596997}
   - component: {fileID: 877862361405461504}
   - component: {fileID: 1154389540750359735}
-  - component: {fileID: 3914764548204394819}
   m_Layer: 0
   m_Name: RHand
   m_TagString: Untagged
@@ -525,27 +525,6 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!135 &3914764548204394819
-SphereCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3954912756957489956}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Radius: 0.5
-  m_Center: {x: 0, y: 0, z: 0}
 --- !u!1 &3979989703175143846
 GameObject:
   m_ObjectHideFlags: 0
@@ -557,7 +536,6 @@ GameObject:
   - component: {fileID: 2612907189964051286}
   - component: {fileID: 3571790333593538887}
   - component: {fileID: 7907274901241312226}
-  - component: {fileID: 8076859205637913995}
   m_Layer: 0
   m_Name: LHand
   m_TagString: Untagged
@@ -633,27 +611,6 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!135 &8076859205637913995
-SphereCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3979989703175143846}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Radius: 0.5
-  m_Center: {x: 0, y: 0, z: 0}
 --- !u!1 &4334570373435682945
 GameObject:
   m_ObjectHideFlags: 0
@@ -1113,7 +1070,6 @@ GameObject:
   - component: {fileID: 1647895561189809410}
   - component: {fileID: 2442866720179911889}
   - component: {fileID: 3732492775441592401}
-  - component: {fileID: 4750049268251584700}
   m_Layer: 0
   m_Name: Stick
   m_TagString: Untagged
@@ -1189,24 +1145,3 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &4750049268251584700
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8790718569780808313}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
-  m_Center: {x: 0, y: 0, z: 0}

@@ -11,6 +11,7 @@ public class FireBall : Spell
 
     public override void Activate(PlayerNetworkCaster caster)
     {
-        caster.CmdCastFireball(speed);
+
+        caster.CastFireball(speed);
     }
 }

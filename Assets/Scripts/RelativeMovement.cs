@@ -16,11 +16,11 @@ public class RelativeMovement : NetworkBehaviour
     [SerializeField] float terminalVelocity = -10.0f;
     [SerializeField] float minFall = -1.5f;
     [SerializeField] float groundCheckDistance = 10f;
-
-    [SerializeField] float jumpCooldown = 1f;
-    private float jumpCooldownTimer = 0f;
     [SerializeField] float slowAfterJumpTime = 0.3f;
     [SerializeField] float speedMultiplier = 0.5f;
+    [SerializeField] float jumpCooldown = 1f;
+
+    private float jumpCooldownTimer = 0f;
     private float jumpSlowTimer = 0.3f;
     private bool isJumping = false;
 
@@ -28,6 +28,8 @@ public class RelativeMovement : NetworkBehaviour
     private CharacterController charController;
     private ControllerColliderHit contact;
     //private Animator animator;
+
+    private Vector3 externalVelocity; // вектор внешнего отталкивания. юзать будем для WindFlow и что-нибудь ещё придумаю
 
     private void Start()
     {
@@ -55,11 +57,15 @@ public class RelativeMovement : NetworkBehaviour
 
         // получение направления движения от игрока
         Vector3 movement = GetInputMovement();
-        // применение ускорения/замедления (Shift, прыжок)
+
+        // приводим персонажа к повороту камеры по Y
+        AlignPlayerToCamera();
+
+        // применение ускорения/замедления
         movement = ApplySpeedModifiers(movement);
-        // поворот игрока в направлении движения
-        RotateTowardsMovement(movement);
+
         //animator.SetFloat("Speed", movement.sqrMagnitude);
+
         // где isRunning = true, если игрок бежит
         cameraShake.SetShaking(true, movement.sqrMagnitude);
 
@@ -68,6 +74,7 @@ public class RelativeMovement : NetworkBehaviour
         bool hitGround;
         // проверка на соприкосновение с землёй
         CheckGround(out hitGround, out distanceToGround);
+
         // обновление значения расстояния до земли
         //animator.SetFloat("DistanceToGround", distanceToGround);
 
@@ -75,13 +82,16 @@ public class RelativeMovement : NetworkBehaviour
         HandleJump(hitGround);
         // применение гравитации, если в воздухе
         ApplyGravity(hitGround, ref movement);
-
+        HandleSlopes(ref movement, hitGround);
         // добавление вертикальной скорости к движению
         movement.y = vertSpeed;
         movement *= Time.deltaTime;
+
+        externalVelocity = Vector3.Lerp(externalVelocity, Vector3.zero, 5f * Time.deltaTime);
+        movement += externalVelocity;
         // перемещение персонажа
         charController.Move(movement);
-        
+
     }
 
 
@@ -99,12 +109,25 @@ public class RelativeMovement : NetworkBehaviour
         float horInput = Input.GetAxis("Horizontal");
         float vertInput = Input.GetAxis("Vertical");
 
+        // движение относительно камеры
         Vector3 right = playerCamera.transform.right;
-        Vector3 forward = Vector3.Cross(right, Vector3.up);
+        right.y = 0;
+        Vector3 forward = playerCamera.transform.forward;
+        forward.y = 0;
 
-        return (right * horInput + forward * vertInput);
+        // A/D стрейф
+        return (right * horInput + forward * vertInput).normalized;
     }
-
+    void AlignPlayerToCamera()
+    {
+        Vector3 forward = playerCamera.transform.forward;
+        forward.y = 0; // убираем наклон перса
+        if (forward.sqrMagnitude > 0.01f)
+        {
+            Quaternion targetRotation = Quaternion.LookRotation(forward);
+            transform.rotation = Quaternion.Lerp(transform.rotation, targetRotation, rotSpeed * Time.deltaTime);
+        }
+    }
     Vector3 ApplySpeedModifiers(Vector3 movement)
     {
         float currentSpeedMultiplier = 1f;
@@ -122,15 +145,6 @@ public class RelativeMovement : NetworkBehaviour
         movement = Vector3.ClampMagnitude(movement, moveSpeed * currentSpeedMultiplier);
 
         return movement;
-    }
-
-    void RotateTowardsMovement(Vector3 movement)
-    {
-        if (movement != Vector3.zero)
-        {
-            Quaternion direction = Quaternion.LookRotation(movement);
-            transform.rotation = Quaternion.Lerp(transform.rotation, direction, rotSpeed * Time.deltaTime);
-        }
     }
 
     void CheckGround(out bool hitGround, out float distanceToGround)
@@ -178,28 +192,36 @@ public class RelativeMovement : NetworkBehaviour
         }
     }
 
+    void HandleSlopes(ref Vector3 movement, bool hitGround)
+    {
+        if (charController.isGrounded && contact != null && hitGround)
+        {
+            if (Vector3.Dot(movement, contact.normal) < 0)
+                movement = contact.normal * moveSpeed;
+            else
+                movement += contact.normal * moveSpeed;
+        }
+    }
+
     void ApplyGravity(bool hitGround, ref Vector3 movement)
     {
         if (!hitGround)
         {
             vertSpeed += gravity * 5 * Time.deltaTime;
             if (vertSpeed < terminalVelocity)
-            {
                 vertSpeed = terminalVelocity;
-            }
-
-            if (charController.isGrounded)
-            {
-                if (Vector3.Dot(movement, contact.normal) < 0)
-                {
-                    movement = contact.normal * moveSpeed;
-                }
-                else
-                {
-                    movement += contact.normal * moveSpeed;
-                }
-            }
         }
+        else if (vertSpeed < 0)
+        {
+            vertSpeed = minFall;
+        }
+    }
+
+    // для внешних сил
+    public void AddExternalForce(Vector3 force)
+    {
+        // накапливаем импульс
+        externalVelocity += force; 
     }
 
     void OnControllerColliderHit(ControllerColliderHit hit)
@@ -213,4 +235,6 @@ public class RelativeMovement : NetworkBehaviour
             rb.AddForce(pushDir * 5f, ForceMode.Impulse);
         }
     }
+
+
 }

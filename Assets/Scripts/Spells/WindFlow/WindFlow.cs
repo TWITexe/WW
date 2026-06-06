@@ -7,6 +7,6 @@ public class WindFlow : Spell
     [SerializeField] float speed = 15f;
     public override void Activate(PlayerNetworkCaster caster)
     {
-        caster.CmdCastWindFlow(speed);
+        caster.CastWindFlow(speed);
     }
 }
