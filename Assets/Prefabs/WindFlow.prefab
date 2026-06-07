@@ -4957,7 +4957,7 @@ MonoBehaviour:
   syncDirection: 0
   syncMode: 0
   syncInterval: 0
-  windFlowForce: 20
+  windFlowForce: 2
 --- !u!54 &4998263268397340800
 Rigidbody:
   m_ObjectHideFlags: 0

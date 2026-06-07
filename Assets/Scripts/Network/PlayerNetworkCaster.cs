@@ -34,19 +34,22 @@ public class PlayerNetworkCaster : NetworkBehaviour
     {
         if (windFlowPrefab == null) return;
 
-        GameObject windFlow = Instantiate(windFlowPrefab, firePoint.position + transform.forward + new Vector3(0, 0.35f, 0), Quaternion.identity);
+        GameObject windFlow = Instantiate(
+       windFlowPrefab,
+       firePoint.position + direction.normalized,
+       Quaternion.identity);
 
         // двигаем в направлении игрока
         Rigidbody rb = windFlow.GetComponent<Rigidbody>();
         if (rb != null)
-            rb.linearVelocity = transform.forward * speed;
+            rb.linearVelocity = direction.normalized * speed;
 
         // спавним для всех
         NetworkServer.Spawn(windFlow);
     }
     public void CastWindFlow(float speed)
     {
-        Vector3 direction = playerCamera != null ? playerCamera.transform.forward : transform.forward;
+        Vector3 direction = playerCamera != null ? playerCamera.transform.forward + new Vector3(0, 0.35f, 0) : transform.forward;
         CmdCastWindFlow(speed, direction);
     }
 }
