@@ -1,4 +1,4 @@
-using UnityEngine;
+п»їusing UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
@@ -13,7 +13,7 @@ public class HealthUI : MonoBehaviour
         if (health != null)
         {
             health.OnHealthChangedEvent += UpdateHealthUI;
-            UpdateHealthUI(health.CurrentHealth, health.MaxHealth); // начальная установка
+            UpdateHealthUI(health.CurrentHealth, health.MaxHealth); // РЅР°С‡Р°Р»СЊРЅР°СЏ СѓСЃС‚Р°РЅРѕРІРєР°
         }
     }
 
@@ -25,6 +25,9 @@ public class HealthUI : MonoBehaviour
 
     private void UpdateHealthUI(int current, int max)
     {
-        healthText.text = "" + current;
+        if (current > 0)
+            healthText.text = "" + current;
+        else
+            healthText.text = "рџ’Ђ Is Dead рџ’Ђ";
     }
 }

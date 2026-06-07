@@ -1,49 +1,57 @@
-using Mirror;
+п»їusing Mirror;
+using System.Collections;
 using UnityEngine;
 
 public class Health : NetworkBehaviour
 {
     //private Animator animator;
 
-    [SerializeField] private int maxHealth = 100;  
+    [SerializeField] private int maxHealth = 100;
 
     [SyncVar(hook = nameof(OnHealthChanged))]
     private int currentHealth;
+
+    // ===================== STATE =====================
+    // РіР»Р°РІРЅС‹Р№ С„Р»Р°Рі СЃРјРµСЂС‚Рё (СЃРёРЅС…СЂРѕРЅРёР·РёСЂСѓРµС‚СЃСЏ РїРѕ СЃРµС‚Рё)
+    [SyncVar]
+    private bool isDead;
+
+    public bool IsDead => isDead;
 
     public int CurrentHealth => currentHealth;
     public int MaxHealth => maxHealth;
 
     public event System.Action<int, int> OnHealthChangedEvent;
+
     private void Awake()
     {
         currentHealth = maxHealth;
     }
-    private void Start()
-    {
-        //animator = GetComponent<Animator>();
-    }
+
     public override void OnStartServer()
     {
         base.OnStartServer();
+
         currentHealth = maxHealth;
+        isDead = false;
     }
 
+    // ===================== DAMAGE =====================
     [Server]
     public void TakeDamage(int damage)
     {
-        if (currentHealth <= 0)
+        if (currentHealth <= 0 || isDead)
             return;
 
         currentHealth -= damage;
-        Debug.Log($"{gameObject.name} получил урон! Текущее здоровье: {currentHealth}");
-
-        //if (animator != null)
-        //    animator.SetTrigger("Hurt");
 
         if (currentHealth <= 0)
+        {
             Die();
+        }
     }
 
+    // ===================== HEAL =====================
     [Server]
     public void Heal(int amount)
     {
@@ -51,38 +59,47 @@ public class Health : NetworkBehaviour
             return;
 
         currentHealth += amount;
+
         if (currentHealth > maxHealth)
             currentHealth = maxHealth;
-
-        Debug.Log($"{gameObject.name} восстановил здоровье! Текущее здоровье: {currentHealth}");
     }
 
+    // ===================== DEATH =====================
     [Server]
     private void Die()
     {
-        Debug.Log($"{gameObject.name} умер на сервере!");
-        RpcDie();
-        // Можно сделать удаление объекта с задержкой
-        NetworkServer.Destroy(transform.parent.gameObject);
+        if (isDead)
+            return;
+
+        isDead = true;
+        currentHealth = 0;
+
+        // Р·Р°РїСѓСЃРєР°РµРј СЂРµСЃРїР°РІРЅ С‚РѕР»СЊРєРѕ РЅР° СЃРµСЂРІРµСЂРµ
+        StartCoroutine(RespawnRoutine());
     }
 
-    [ClientRpc]
-    private void RpcDie()
+    // ===================== RESPAWN =====================
+    [Server]
+    private IEnumerator RespawnRoutine()
     {
-        Debug.Log($"{gameObject.name} умер на клиенте!");
-        //if (animator != null)
-        //    animator.SetTrigger("Die");
+        yield return new WaitForSeconds(3f);
+
+        Transform spawn = SpawnManager.Instance.GetSpawnPoint();
+
+        currentHealth = maxHealth;
+        isDead = false;
+
+        CharacterController cc = GetComponent<CharacterController>();
+
+        cc.enabled = false;
+        transform.position = spawn.position;
+        transform.rotation = spawn.rotation;
+        cc.enabled = true;
     }
+
+    // ===================== SYNC HEALTH =====================
     private void OnHealthChanged(int oldHealth, int newHealth)
     {
-        // обновляй UI или анимации здесь на клиентах
-
-        //if (animator != null && newHealth < oldHealth)
-        //    animator.SetTrigger("Hurt");
-
-        //if (newHealth <= 0)
-        //    DieClientSide();
-
         OnHealthChangedEvent?.Invoke(newHealth, maxHealth);
     }
 

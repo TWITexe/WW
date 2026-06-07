@@ -336,7 +336,7 @@ MonoBehaviour:
   playerCamera: {fileID: 866406066030041993}
   rotSpeed: 15
   moveSpeed: 6
-  jumpSpeed: 13
+  jumpSpeed: 12
   gravity: -9.8
   terminalVelocity: -10
   minFall: -1.5
