@@ -13,13 +13,11 @@ public class Trap : NetworkBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        Debug.Log($"ENTER {other.name}");
         if (!isServer) return; // обработка только на сервере
 
         Health health = other.GetComponentInParent<Health>();
         if (health != null)
         {
-            Debug.Log($"FOUND HEALTH {health.name}");
             Coroutine coroutine = StartCoroutine(DamageOverTime(health));
             damageCoroutines.Add(health, coroutine);
         }
@@ -41,7 +39,6 @@ public class Trap : NetworkBehaviour
     {
         while (true)
         {
-            Debug.Log($"DAMAGE TICK {health.name}");
             if (health == null)
                 yield break;
 
