@@ -611,7 +611,7 @@ ParticleSystem:
     gravityModifier:
       serializedVersion: 2
       minMaxState: 0
-      scalar: 0.5
+      scalar: 0.1
       minScalar: 0
       maxCurve:
         serializedVersion: 2
@@ -4889,7 +4889,7 @@ SphereCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Radius: 1
+  m_Radius: 0.54
   m_Center: {x: 0, y: 0, z: 0}
 --- !u!114 &7928735844500948449
 MonoBehaviour:
@@ -4957,7 +4957,7 @@ MonoBehaviour:
   syncDirection: 0
   syncMode: 0
   syncInterval: 0
-  windFlowForce: 2
+  windFlowForce: 10
 --- !u!54 &4998263268397340800
 Rigidbody:
   m_ObjectHideFlags: 0

@@ -9,7 +9,7 @@ public class SpellManager : MonoBehaviour
     private InputComboTracker inputComboTracker;
 
     private Dictionary<Spell, float> spellCooldowns = new Dictionary<Spell, float>(); // кулдауны спеллов
-    List<KeyCode> keysForSpells = new List<KeyCode>() { KeyCode.Q, KeyCode.E,KeyCode.R }; // кнопки для скиллов
+    List<KeyCode> keysForSpells = new List<KeyCode>() { KeyCode.E, KeyCode.R,KeyCode.T }; // кнопки для скиллов
 
     private void Start()
     {

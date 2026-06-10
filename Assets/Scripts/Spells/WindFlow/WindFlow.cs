@@ -2,7 +2,7 @@ using UnityEngine;
 [CreateAssetMenu(menuName = "Spells/WindFlow")]
 public class WindFlow : Spell
 {
-    public override KeyCode[] Combo => new KeyCode[] { KeyCode.R, KeyCode.E, KeyCode.Q };
+    public override KeyCode[] Combo => new KeyCode[] { KeyCode.T, KeyCode.R, KeyCode.E };
     [SerializeField] private GameObject windFLowPrefab;
     [SerializeField] float speed = 15f;
     public override void Activate(PlayerNetworkCaster caster)
