@@ -89,12 +89,56 @@ public class Health : NetworkBehaviour
         currentHealth = maxHealth;
         isDead = false;
 
+        // 1. Телепортируем серверную копию игрока
+        ServerTeleport(spawn.position, spawn.rotation);
+
+        // 2. Телепортируем клиента-владельца
+        // Это важно, потому что именно клиент двигает своего персонажа
+        TargetTeleport(connectionToClient, spawn.position, spawn.rotation);
+    }
+    [Server]
+    private void ServerTeleport(Vector3 position, Quaternion rotation)
+    {
         CharacterController cc = GetComponent<CharacterController>();
 
-        cc.enabled = false;
-        transform.position = spawn.position;
-        transform.rotation = spawn.rotation;
-        cc.enabled = true;
+        if (cc != null)
+            cc.enabled = false;
+
+        transform.position = position;
+        transform.rotation = rotation;
+
+        ResetMovementState();
+
+        if (cc != null)
+            cc.enabled = true;
+    }
+
+    [TargetRpc]
+    private void TargetTeleport(NetworkConnectionToClient target, Vector3 position, Quaternion rotation)
+    {
+        CharacterController cc = GetComponent<CharacterController>();
+
+        if (cc != null)
+            cc.enabled = false;
+
+        transform.position = position;
+        transform.rotation = rotation;
+
+        ResetMovementState();
+
+        if (cc != null)
+            cc.enabled = true;
+    }
+
+    private void ResetMovementState()
+    {
+        RelativeMovement movement = GetComponent<RelativeMovement>();
+
+        if (movement != null)
+        {
+            movement.ResetVerticalVelocity();
+            movement.ForceGroundReset();
+        }
     }
 
     // ===================== SYNC HEALTH =====================
