@@ -32,10 +32,6 @@ public class RelativeMovement : NetworkBehaviour
     private Vector3 externalVelocity;
 
     // ===================== STATE =====================
-    // серверное состояние смерти
-    [SyncVar(hook = nameof(OnDeadChanged))]
-    private bool isDead;
-
     // локальная блокировка ввода (чтобы не зависеть от сети)
     private bool inputLocked;
 
@@ -199,9 +195,25 @@ public class RelativeMovement : NetworkBehaviour
     }
 
     // ===================== EXTERNAL FORCE =====================
+    // используется WindFlow, отбрасывания и т.д.
     public void AddExternalForce(Vector3 force)
     {
         externalVelocity += force;
+    }
+
+    // вызывается только сервером, когда кто-то должен получить отталкивание
+    [Server]
+    public void ServerAddExternalForce(Vector3 force)
+    {
+        // отправляем отталкивание именно клиенту-владельцу этого игрока
+        TargetAddExternalForce(connectionToClient, force);
+    }
+
+    // выполняется только на клиенте-владельце игрока
+    [TargetRpc]
+    private void TargetAddExternalForce(NetworkConnectionToClient target, Vector3 force)
+    {
+        AddExternalForce(force);
     }
 
     // ===================== COLLISIONS =====================
@@ -223,7 +235,6 @@ public class RelativeMovement : NetworkBehaviour
     // вызывается сервером через Health (SyncVar hook)
     private void OnDeadChanged(bool oldValue, bool newValue)
     {
-        isDead = newValue;
 
         if (newValue)
         {

@@ -2,8 +2,6 @@ using UnityEngine;
 
 public class OrbitCamera : MonoBehaviour
 {
-
-
     [SerializeField] Transform target;
     [SerializeField] float rotSpeed = 1.5f;
     [SerializeField] float minVerticalAngle = -30f;
