@@ -8,6 +8,7 @@ public class PlayerName : NetworkBehaviour
 
     [SyncVar(hook = nameof(OnNicknameChanged))]
     private string nickname;
+    public string Nickname => string.IsNullOrWhiteSpace(nickname) ? "Player" : nickname;
 
     public override void OnStartLocalPlayer()
     {

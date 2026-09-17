@@ -1,64 +1,43 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+[DefaultExecutionOrder(200)]
 public class SpellManager : MonoBehaviour
 {
-
-    [SerializeField] List<Spell> spells;
+    [SerializeField] private List<Spell> spells = new List<Spell>();
+    private static readonly KeyCode[] Keys = { KeyCode.Q, KeyCode.E, KeyCode.R };
     private PlayerNetworkCaster caster;
-    private InputComboTracker inputComboTracker;
-
-    private Dictionary<Spell, float> spellCooldowns = new Dictionary<Spell, float>(); // кулдауны спеллов
-    List<KeyCode> keysForSpells = new List<KeyCode>() { KeyCode.E, KeyCode.R,KeyCode.T }; // кнопки для скиллов
-
-    private void Start()
+    private InputComboTracker tracker;
+    private Health health;
+    public IReadOnlyList<Spell> Spells => spells;
+    private void Awake()
     {
-        // тут в общем если слева нул, то юзается правая часть
-        inputComboTracker = GetComponent<InputComboTracker>() ?? gameObject.AddComponent<InputComboTracker>();
+        tracker = GetComponent<InputComboTracker>() ?? gameObject.AddComponent<InputComboTracker>();
         caster = GetComponent<PlayerNetworkCaster>();
-
+        health = GetComponent<Health>();
     }
-
-    void Update()
+    private void LateUpdate()
     {
-       
-
-        foreach (var key in keysForSpells)
+        if (caster == null || !caster.isLocalPlayer) return;
+        tracker.Expire();
+        if (PlayerGameUI.InputBlocked || !caster.LoadoutReady || (health != null && health.IsDead))
         {
-            if (Input.GetKeyDown(key))
-            {
-                Debug.Log($"Key {key} down!");
-                inputComboTracker.AddKey(key);
-
-                foreach (var spell in spells)
-                {
-                    if (spell.MatchesCombo(inputComboTracker.GetHistory()) && CanCast(spell))
-                    {
-                        spell.Activate(caster);
-                    }
-                }
-            }
+            tracker.Clear();
+            return;
+        }
+        for (int slot = 0; slot < Keys.Length; slot++)
+        {
+            if (!Input.GetKeyDown(Keys[slot])) continue;
+            tracker.AddElement(caster.Loadout.Get(slot));
+            caster.SubmitElement(slot);
+            if (FindSpell(tracker.History, caster.Loadout) >= 0) tracker.Clear();
         }
     }
-    public void AddSpell(Spell spell)
+    public int FindSpell(IReadOnlyList<MagicElement> input, ElementLoadout loadout)
     {
-        if (!spells.Contains(spell))
-            spells.Add(spell);
+        for (int i = 0; i < spells.Count; i++)
+            if (spells[i] != null && spells[i].IsAvailable(loadout) && spells[i].MatchesCombo(input)) return i;
+        return -1;
     }
-
-    public void RemoveSpell(Spell spell)
-    {
-        if (spells.Contains(spell))
-            spells.Remove(spell);
-    }
-    bool CanCast(Spell spell)
-    {
-        if (!spellCooldowns.ContainsKey(spell)) return true;
-        return Time.time - spellCooldowns[spell] >= spell.Cooldown;
-    }
-
-    void SetCastTime(Spell spell)
-    {
-        spellCooldowns[spell] = Time.time;
-    }
+    public Spell GetSpell(int index) => index >= 0 && index < spells.Count ? spells[index] : null;
 }

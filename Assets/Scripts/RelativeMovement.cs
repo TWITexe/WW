@@ -1,5 +1,4 @@
-﻿using Mirror;
-using System.Collections;
+using Mirror;
 using UnityEngine;
 
 [RequireComponent(typeof(CharacterController))]
@@ -7,266 +6,133 @@ public class RelativeMovement : NetworkBehaviour
 {
     [SerializeField] CameraShake cameraShake;
     [SerializeField] Camera playerCamera;
-
-    [SerializeField] float rotSpeed = 15.0f;
-    [SerializeField] float moveSpeed = 6.0f;
-    [SerializeField] float jumpSpeed = 15.0f;
+    [SerializeField] float rotSpeed = 8;
+    public Camera ViewCamera => playerCamera;
+    [SerializeField] float moveSpeed = 6;
+    [SerializeField] float jumpSpeed = 15;
     [SerializeField] float gravity = -9.8f;
-    [SerializeField] float terminalVelocity = -10.0f;
+    [SerializeField] float terminalVelocity = -22;
+    [SerializeField, Min(1)] float fallGravityMultiplier = 1.8f;
     [SerializeField] float minFall = -1.5f;
-    [SerializeField] float groundCheckDistance = 10f;
-    [SerializeField] float slowAfterJumpTime = 0.3f;
-    [SerializeField] float speedMultiplier = 0.5f;
-    [SerializeField] float jumpCooldown = 1f;
-
-    private float jumpCooldownTimer = 0f;
-    private float jumpSlowTimer = 0.3f;
-    private bool isJumping = false;
-
-    private float vertSpeed;
-    private CharacterController charController;
-    private ControllerColliderHit contact;
+    [SerializeField] float groundProbeDistance = .10f;
+    [SerializeField] float slowAfterJumpTime = .3f;
+    [SerializeField] float speedMultiplier = .5f;
+    [SerializeField] float jumpCooldown = 1;
+    [SyncVar] private float slowMultiplier = 1;
+    private double slowUntil;
+    private float jumpCooldownTimer, jumpSlowTimer, vertSpeed;
+    private bool isJumping;
+    private CharacterController controller;
     private Health health;
-
-    // ВНЕШНЯЯ СИЛА (WindFlow, knockback и т.д.)
     private Vector3 externalVelocity;
+    private Vector3 dashVelocity;
+    private float dashRemaining;
+    public Vector3 PlanarInputDirection { get; private set; }
 
-    // ===================== STATE =====================
-    // локальная блокировка ввода (чтобы не зависеть от сети)
-    private bool inputLocked;
-
-    private void Start()
+    private void Awake()
     {
-        charController = GetComponent<CharacterController>();
-        health = GetComponent<Health>();
-        vertSpeed = minFall;
+        controller = GetComponent<CharacterController>(); health = GetComponent<Health>(); vertSpeed = minFall;
+        // Disable remote cameras before Mirror's client callbacks and the first render.
+        SetLocalCamera(false);
     }
-
+    private void SetLocalCamera(bool active)
+    {
+        if (playerCamera != null) playerCamera.gameObject.SetActive(active);
+    }
+    public override void OnStartClient()
+    {
+        base.OnStartClient();
+        SetLocalCamera(isLocalPlayer);
+    }
     public override void OnStartLocalPlayer()
     {
         base.OnStartLocalPlayer();
-
-        if (playerCamera != null)
-            playerCamera.gameObject.SetActive(true);
+        SetLocalCamera(true);
     }
-
-    void Update()
+    public override void OnStopLocalPlayer()
     {
-        // ===================== INPUT LOCK =====================
-        if (!isOwned || playerCamera == null || (health != null && health.IsDead))
-            return;
-
-        HandleTimers();
-
-        Vector3 movement = GetInputMovement();
-
-        AlignPlayerToCamera();
-
-        movement = ApplySpeedModifiers(movement);
-
-        CheckGround(out bool hitGround, out float distanceToGround);
-
-        HandleJump(hitGround);
-
-        ApplyGravity(hitGround, ref movement);
-
-        movement.y = vertSpeed;
-
-        externalVelocity = Vector3.Lerp(externalVelocity, Vector3.zero, 5f * Time.deltaTime);
-        movement += externalVelocity;
-
-        charController.Move(movement * Time.deltaTime);
-
-        cameraShake?.SetShaking(true, movement.sqrMagnitude);
+        SetLocalCamera(false);
+        base.OnStopLocalPlayer();
     }
-
-    // ===================== TIMERS =====================
-    void HandleTimers()
+    private void Update()
     {
-        if (jumpCooldownTimer > 0)
-            jumpCooldownTimer -= Time.deltaTime;
-
-        if (jumpSlowTimer > 0f)
-            jumpSlowTimer -= Time.deltaTime;
-    }
-
-    // ===================== INPUT =====================
-    Vector3 GetInputMovement()
-    {
-        float horInput = Input.GetAxis("Horizontal");
-        float vertInput = Input.GetAxis("Vertical");
-
-        Vector3 right = playerCamera.transform.right;
-        right.y = 0;
-
-        Vector3 forward = playerCamera.transform.forward;
-        forward.y = 0;
-
-        return (right * horInput + forward * vertInput).normalized;
-    }
-
-    void AlignPlayerToCamera()
-    {
-        Vector3 forward = playerCamera.transform.forward;
-        forward.y = 0;
-
-        if (forward.sqrMagnitude > 0.01f)
+        if (isServer && NetworkTime.time >= slowUntil) slowMultiplier = 1;
+        if (!isOwned || playerCamera == null || !controller.enabled || (health != null && health.IsDead)) return;
+        jumpCooldownTimer = Mathf.Max(0, jumpCooldownTimer - Time.deltaTime);
+        jumpSlowTimer = Mathf.Max(0, jumpSlowTimer - Time.deltaTime);
+        bool blocked = PlayerGameUI.InputBlocked;
+        bool grounded = vertSpeed <= 0 && ProbeGround();
+        bool jumped = false;
+        if (grounded)
         {
-            Quaternion targetRotation = Quaternion.LookRotation(forward);
-            transform.rotation = Quaternion.Lerp(transform.rotation, targetRotation, rotSpeed * Time.deltaTime);
-        }
-    }
-
-    // ===================== SPEED =====================
-    Vector3 ApplySpeedModifiers(Vector3 movement)
-    {
-        float currentSpeedMultiplier = 1f;
-
-        if (Input.GetKey(KeyCode.LeftShift))
-            currentSpeedMultiplier *= 1.5f;
-
-        if (isJumping)
-            currentSpeedMultiplier *= speedMultiplier;
-
-        if (jumpSlowTimer > 0f)
-            currentSpeedMultiplier *= speedMultiplier;
-
-        movement *= moveSpeed * currentSpeedMultiplier;
-
-        return Vector3.ClampMagnitude(movement, moveSpeed * currentSpeedMultiplier);
-    }
-
-    // ===================== GROUND CHECK =====================
-    void CheckGround(out bool hitGround, out float distanceToGround)
-    {
-        distanceToGround = groundCheckDistance;
-        hitGround = false;
-
-        RaycastHit hit;
-
-        if (vertSpeed < 0 &&
-            Physics.Raycast(transform.position, Vector3.down, out hit, groundCheckDistance))
-        {
-            distanceToGround = hit.distance;
-
-            float check = (charController.height + charController.radius) / 1.9f;
-            hitGround = hit.distance <= check;
-        }
-    }
-
-    // ===================== JUMP =====================
-    void HandleJump(bool hitGround)
-    {
-        if (hitGround)
-        {
-            if (Input.GetButtonDown("Jump") && jumpCooldownTimer <= 0)
-            {
-                vertSpeed = jumpSpeed;
-                isJumping = true;
-                jumpCooldownTimer = jumpCooldown;
-            }
-            else
-            {
-                if (isJumping)
-                {
-                    jumpSlowTimer = slowAfterJumpTime;
-                    isJumping = false;
-                }
-
-                vertSpeed = minFall;
-            }
-        }
-    }
-
-    // ===================== GRAVITY =====================
-    void ApplyGravity(bool hitGround, ref Vector3 movement)
-    {
-        if (!hitGround)
-        {
-            vertSpeed += gravity * 5f * Time.deltaTime;
-
-            if (vertSpeed < terminalVelocity)
-                vertSpeed = terminalVelocity;
-        }
-        else if (vertSpeed < 0)
-        {
+            if (isJumping) { isJumping = false; jumpSlowTimer = slowAfterJumpTime; }
             vertSpeed = minFall;
+            if (!blocked && Input.GetButtonDown("Jump") && jumpCooldownTimer <= 0)
+            {
+                vertSpeed = jumpSpeed; jumpCooldownTimer = jumpCooldown; isJumping = true; jumped = true;
+            }
         }
+        if (!grounded && !jumped)
+            // Keep the original jump ascent. Descent has its own multiplier,
+            // rather than multiplying the jump's 5x gravity a second time.
+            vertSpeed = Mathf.Max(terminalVelocity, vertSpeed + gravity * (vertSpeed < 0 ? fallGravityMultiplier : 5) * Time.deltaTime);
+        Vector3 forward = Vector3.ProjectOnPlane(playerCamera.transform.forward, Vector3.up).normalized;
+        Vector3 right = Vector3.ProjectOnPlane(playerCamera.transform.right, Vector3.up).normalized;
+        Vector3 movement = blocked ? Vector3.zero :
+            (right * Input.GetAxis("Horizontal") + forward * Input.GetAxis("Vertical")).normalized;
+        PlanarInputDirection = movement;
+        float multiplier = slowMultiplier;
+        if (!blocked && Input.GetKey(KeyCode.LeftShift)) multiplier *= 1.5f;
+        if (isJumping) multiplier *= speedMultiplier;
+        if (jumpSlowTimer > 0) multiplier *= speedMultiplier;
+        movement *= moveSpeed * multiplier;
+        if (!blocked && forward.sqrMagnitude > .01f)
+            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(forward), 1 - Mathf.Exp(-rotSpeed * Time.deltaTime));
+        movement.y = vertSpeed;
+        externalVelocity = Vector3.Lerp(externalVelocity, Vector3.zero, 5 * Time.deltaTime);
+        float dashStep = Mathf.Min(Time.deltaTime, dashRemaining);
+        dashRemaining = Mathf.Max(0, dashRemaining - Time.deltaTime);
+        controller.Move((movement + externalVelocity) * Time.deltaTime + dashVelocity * dashStep);
+        cameraShake?.SetShaking(!blocked && grounded && movement.x * movement.x + movement.z * movement.z > .1f, movement.sqrMagnitude);
     }
-
-    // ===================== EXTERNAL FORCE =====================
-    // используется WindFlow, отбрасывания и т.д.
-    public void AddExternalForce(Vector3 force)
+    public bool ProbeGround()
     {
-        externalVelocity += force;
+        if (controller == null) controller = GetComponent<CharacterController>();
+        float radius = controller.radius * Mathf.Max(transform.lossyScale.x, transform.lossyScale.z) * .9f;
+        Vector3 feet = transform.TransformPoint(controller.center) - Vector3.up * controller.height * transform.lossyScale.y * .5f;
+        const float lift = .08f;
+        var hits = Physics.SphereCastAll(feet + Vector3.up * (radius + lift), radius, Vector3.down,
+            lift + groundProbeDistance, ~0, QueryTriggerInteraction.Ignore);
+        foreach (var hit in hits)
+            if (!hit.collider.transform.IsChildOf(transform.root) &&
+                Vector3.Dot(hit.normal, Vector3.up) >= Mathf.Cos(controller.slopeLimit * Mathf.Deg2Rad))
+                return true;
+        return false;
     }
-
-    // вызывается только сервером, когда кто-то должен получить отталкивание
-    [Server]
-    public void ServerAddExternalForce(Vector3 force)
+    public void AddExternalForce(Vector3 force) => externalVelocity += force;
+    [Server] public void ServerDash(Vector3 direction) => TargetDash(connectionToClient, direction);
+    [TargetRpc] private void TargetDash(NetworkConnectionToClient target, Vector3 direction)
     {
-        // отправляем отталкивание именно клиенту-владельцу этого игрока
-        TargetAddExternalForce(connectionToClient, force);
+        if (health != null && health.IsDead) return;
+        dashVelocity = Vector3.ProjectOnPlane(direction,Vector3.up).normalized * 24;
+        dashRemaining = .22f;
     }
-
-    // выполняется только на клиенте-владельце игрока
-    [TargetRpc]
-    private void TargetAddExternalForce(NetworkConnectionToClient target, Vector3 force)
+    [Server] public void ApplySlow(float multiplier, float duration)
     {
-        AddExternalForce(force);
+        slowMultiplier = Mathf.Min(slowMultiplier, Mathf.Clamp(multiplier, .2f, 1));
+        slowUntil = System.Math.Max(slowUntil, NetworkTime.time + duration);
     }
-
-    // ===================== COLLISIONS =====================
-    void OnControllerColliderHit(ControllerColliderHit hit)
+    [Server] public void ServerAddExternalForce(Vector3 force) => TargetAddExternalForce(connectionToClient, force);
+    [TargetRpc] private void TargetAddExternalForce(NetworkConnectionToClient target, Vector3 force) => AddExternalForce(force);
+    private void OnControllerColliderHit(ControllerColliderHit hit)
     {
-        contact = hit;
-
-        Rigidbody rb = hit.collider.attachedRigidbody;
-
-        if (rb != null && !rb.isKinematic)
-        {
-            Vector3 pushDir = new Vector3(hit.moveDirection.x, 0, hit.moveDirection.z);
-            rb.AddForce(pushDir * 5f, ForceMode.Impulse);
-        }
+        if (hit.rigidbody != null && !hit.rigidbody.isKinematic)
+            hit.rigidbody.AddForce(new Vector3(hit.moveDirection.x, 0, hit.moveDirection.z) * 5, ForceMode.Impulse);
     }
-
-    // ===================== DEATH CONTROL =====================
-
-    // вызывается сервером через Health (SyncVar hook)
-    private void OnDeadChanged(bool oldValue, bool newValue)
-    {
-
-        if (newValue)
-        {
-            inputLocked = true;
-        }
-        else
-        {
-            StartCoroutine(UnlockAfterRespawn());
-        }
-    }
-
-    private IEnumerator UnlockAfterRespawn()
-    {
-        // ждём 1 кадр, чтобы Mirror синхронизировал состояние
-        yield return null;
-
-        vertSpeed = minFall;
-        externalVelocity = Vector3.zero;
-        isJumping = false;
-
-        inputLocked = false;
-    }
-
-    // ===================== RESET API =====================
-    // вызывается сервером при respawn (если нужно вручную)
     public void ResetVerticalVelocity()
     {
-        vertSpeed = minFall;
+        vertSpeed = minFall; externalVelocity = Vector3.zero; dashVelocity=Vector3.zero;dashRemaining=0;PlanarInputDirection=Vector3.zero; isJumping = false; jumpCooldownTimer = jumpSlowTimer = 0;
+        if (isServer) { slowMultiplier = 1; slowUntil = 0; }
     }
-
-    public void ForceGroundReset()
-    {
-        vertSpeed = -2f;
-    }
+    public void ForceGroundReset() => vertSpeed = minFall;
 }

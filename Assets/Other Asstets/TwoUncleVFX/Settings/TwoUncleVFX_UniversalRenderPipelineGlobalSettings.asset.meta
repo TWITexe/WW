@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: e5c9907f898ded4418479909f5a8ad89
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 11400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 288049
+  packageName: VFX Graph - Chi Spiral
+  packageVersion: 1.3
+  assetPath: Assets/TwoUncleVFX/Settings/TwoUncleVFX_UniversalRenderPipelineGlobalSettings.asset
+  uploadId: 688888

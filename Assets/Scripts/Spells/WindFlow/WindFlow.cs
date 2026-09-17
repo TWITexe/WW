@@ -1,12 +1,10 @@
 using UnityEngine;
+
 [CreateAssetMenu(menuName = "Spells/WindFlow")]
 public class WindFlow : Spell
 {
-    public override KeyCode[] Combo => new KeyCode[] { KeyCode.T, KeyCode.R, KeyCode.E };
     [SerializeField] private GameObject windFLowPrefab;
-    [SerializeField] float speed = 15f;
-    public override void Activate(PlayerNetworkCaster caster)
-    {
-        caster.CastWindFlow(speed);
-    }
+    [SerializeField, Min(0.1f)] private float speed = 20f;
+    public override bool ActivateServer(PlayerNetworkCaster caster, Vector3 direction)
+        => caster.SpawnProjectile(windFLowPrefab, speed, direction);
 }

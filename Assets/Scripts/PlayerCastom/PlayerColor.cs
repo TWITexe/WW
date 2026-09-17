@@ -47,6 +47,12 @@ public class PlayerColor : NetworkBehaviour
 
     private void ApplyColor(PlayerColorId colorId)
     {
+        var wizard = GetComponent<WizardAppearance>();
+        if (wizard != null && PlayerColorManager.Instance != null)
+        {
+            wizard.Tint(PlayerColorManager.Instance.GetUnityColor(colorId));
+            return;
+        }
         if (bodyRenderer == null)
             return;
 

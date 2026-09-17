@@ -1,23 +1,29 @@
+using Mirror;
 using UnityEngine;
 
 public class BillboardToCamera : MonoBehaviour
 {
     private Camera targetCamera;
+    private NetworkIdentity owner;
+    private Canvas overheadCanvas;
+    private bool canvasVisibleByDefault;
 
-    private void Start()
+    private void Awake()
     {
-        targetCamera = Camera.main;
+        owner = GetComponentInParent<NetworkIdentity>();
+        overheadCanvas = GetComponent<Canvas>();
+        canvasVisibleByDefault = overheadCanvas != null && overheadCanvas.enabled;
     }
 
     private void LateUpdate()
     {
-        if (targetCamera == null)
-        {
+        // Keep data updated for the scoreboard; hide only the overhead canvas.
+        if (overheadCanvas != null)
+            overheadCanvas.enabled = canvasVisibleByDefault && (owner == null || !owner.isLocalPlayer);
+        if (owner != null && owner.isLocalPlayer) return;
+        if (targetCamera == null || !targetCamera.isActiveAndEnabled)
             targetCamera = Camera.main;
-            return;
-        }
-
-        // Поворачиваем Canvas лицом к камере
-        transform.LookAt(transform.position + targetCamera.transform.forward);
+        if (targetCamera != null)
+            transform.LookAt(transform.position + targetCamera.transform.forward);
     }
 }

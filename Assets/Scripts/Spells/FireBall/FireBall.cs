@@ -1,17 +1,10 @@
-using Mirror;
 using UnityEngine;
 
 [CreateAssetMenu(menuName = "Spells/Fireball")]
 public class FireBall : Spell
 {
-    public override KeyCode[] Combo => new KeyCode[] { KeyCode.E, KeyCode.R, KeyCode.T};
-
     [SerializeField] private GameObject fireballPrefab;
-    [SerializeField] float speed = 10f;
-
-    public override void Activate(PlayerNetworkCaster caster)
-    {
-
-        caster.CastFireball(speed);
-    }
+    [SerializeField, Min(0.1f)] private float speed = 15f;
+    public override bool ActivateServer(PlayerNetworkCaster caster, Vector3 direction)
+        => caster.SpawnProjectile(fireballPrefab, speed, direction);
 }

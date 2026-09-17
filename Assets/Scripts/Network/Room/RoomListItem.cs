@@ -17,7 +17,8 @@ public class RoomListItem : MonoBehaviour
         roomInfo = info;
         roomListUI = owner;
 
-        roomNameText.text = info.roomName;
+        roomNameText.richText = false;
+        roomNameText.text = string.IsNullOrWhiteSpace(info.roomName) ? "Комната" : info.roomName;
         playersText.text = $"{info.players}/{info.maxPlayers}";
         //addressText.text = $"{info.address}:{info.port}";
 

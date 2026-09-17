@@ -4,65 +4,38 @@ public class OrbitCamera : MonoBehaviour
 {
     [SerializeField] Transform target;
     [SerializeField] float rotSpeed = 1.5f;
-    [SerializeField] float minVerticalAngle = -30f;
-    [SerializeField] float maxVerticalAngle = 60f;
-
-    // зум камеры
-    [SerializeField] float zoomSpeed = 2f;
-    [SerializeField] float minZoom = 2f;
-    [SerializeField] float maxZoom = 15f;
-    private float currentZoom;
-
-    private float rotY;
-    private float rotX;
-    private Vector3 offset;
-    private Vector3 offsetDir; // направление от цели до камеры
-    // для тряски
-    private Vector3 shakeOffset = Vector3.zero;
-
-    void Start()
+    [SerializeField] float minVerticalAngle = -35;
+    [SerializeField] float maxVerticalAngle = 65;
+    [SerializeField] float pivotHeight = 1.6f;
+    [SerializeField] float shoulderOffset = 1.6f;
+    [SerializeField] float defaultDistance = 6.5f;
+    [SerializeField] float initialPitch = 3;
+    [SerializeField] float fieldOfView = 70;
+    private float yaw, pitch;
+    private Vector3 shakeOffset;
+    private void Start()
     {
-
-        Cursor.lockState = CursorLockMode.Locked;   // зафиксировать курсор в центре экрана
-        Cursor.visible = false;
-
-        rotY = transform.eulerAngles.y;
-        rotX = transform.eulerAngles.x;
-        currentZoom = offset.magnitude;
-        offset = target.position - transform.position;
-        offsetDir = offset.normalized;
+        pitch = Mathf.Clamp(initialPitch, minVerticalAngle, maxVerticalAngle);
+        yaw = target != null ? target.eulerAngles.y : transform.eulerAngles.y;
+        var camera = GetComponent<Camera>();
+        camera.fieldOfView = fieldOfView; camera.nearClipPlane = .1f;
     }
-
-    void LateUpdate()
+    private void LateUpdate()
     {
-        float horInput = Input.GetAxis("Horizontal");
-        float mouseX = Input.GetAxis("Mouse X") * rotSpeed * 3;
-        float mouseY = Input.GetAxis("Mouse Y") * rotSpeed * 3;
-
-        rotY += mouseX;
-        rotX -= mouseY;
-
-
-        rotX = Mathf.Clamp(rotX, minVerticalAngle, maxVerticalAngle);
-
-        CameraZoom();
-
-        Quaternion rotation = Quaternion.Euler(rotX, rotY, 0);
-        Vector3 offset = offsetDir * currentZoom;
-
-        transform.position = target.position - (rotation * offset) + shakeOffset;
-
-        transform.LookAt(target);
+        if (target == null) return;
+        if (!PlayerGameUI.InputBlocked)
+        {
+            yaw += Input.GetAxis("Mouse X") * rotSpeed;
+            pitch = Mathf.Clamp(pitch - Input.GetAxis("Mouse Y") * rotSpeed, minVerticalAngle, maxVerticalAngle);
+        }
+        Quaternion rotation = Quaternion.Euler(pitch, yaw, 0);
+        Vector3 pivot = target.position + Vector3.up * pivotHeight;
+        Vector3 offset = rotation * new Vector3(shoulderOffset, 0, -defaultDistance);
+        float distance = offset.magnitude;
+        foreach (var hit in Physics.SphereCastAll(pivot, .18f, offset.normalized, distance, ~(1 << 2), QueryTriggerInteraction.Ignore))
+            if (!hit.collider.transform.IsChildOf(target.root) && hit.collider.GetComponentInParent<Health>() == null)
+                distance = Mathf.Min(distance, Mathf.Max(.25f, hit.distance - .05f));
+        transform.SetPositionAndRotation(pivot + offset.normalized * distance + shakeOffset, rotation);
     }
-
-    private void CameraZoom()
-    {
-        float scrollInput = Input.GetAxis("Mouse ScrollWheel");
-        currentZoom -= scrollInput * zoomSpeed;
-        currentZoom = Mathf.Clamp(currentZoom, minZoom, maxZoom);
-    }
-    public void SetShakeOffset(Vector3 offset)
-    {
-        shakeOffset = offset;
-    }
+    public void SetShakeOffset(Vector3 offset) => shakeOffset = offset;
 }

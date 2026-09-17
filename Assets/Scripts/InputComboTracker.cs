@@ -1,21 +1,22 @@
-using NUnit.Framework;
 using System.Collections.Generic;
 using UnityEngine;
 
 public class InputComboTracker : MonoBehaviour
 {
-    [SerializeField] List<KeyCode> historyInput = new List<KeyCode>();
-    private int maxLength = 3;
-    public void AddKey(KeyCode key)
+    public const float InputTimeout = 2f;
+    private readonly List<MagicElement> history = new List<MagicElement>(3);
+    private float lastInput;
+    public IReadOnlyList<MagicElement> History => history;
+    public void AddElement(MagicElement element)
     {
-        historyInput.Add(key);
-        if (historyInput.Count > maxLength)
-        {
-            historyInput.RemoveAt(0);
-        }
+        Expire();
+        if (history.Count == 3) history.RemoveAt(0);
+        history.Add(element);
+        lastInput = Time.time;
     }
-    public List<KeyCode> GetHistory()
+    public void Expire()
     {
-        return historyInput;
+        if (Time.time - lastInput >= InputTimeout) Clear();
     }
+    public void Clear() => history.Clear();
 }
