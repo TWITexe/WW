@@ -4,6 +4,7 @@ using Mirror;
 using UnityEngine;
 using UnityEngine.UI;
 
+// связывает сохранённый интерфейс матча с локальным игроком: здоровье, комбинации, перезарядки и таблицу.
 [DefaultExecutionOrder(-100)]
 public class PlayerGameUI : MonoBehaviour
 {
@@ -11,6 +12,7 @@ public class PlayerGameUI : MonoBehaviour
     private PlayerNetworkCaster caster;
     private SpellManager spells;
     private Health health;
+    private InputComboTracker comboTracker;
     [SerializeField] private Canvas canvas;
     [SerializeField] private GameObject pause, scoreboard;
     [SerializeField] private Text status, combo, table;
@@ -22,9 +24,23 @@ public class PlayerGameUI : MonoBehaviour
     private Font font;
     private bool built;
     private float nextScore;
+    private int displayedHealth = -1, displayedShield = -1, displayedMaxHealth = -1;
+    private string loadoutCaption;
+    private int displayedCombo = int.MinValue;
     [SerializeField] private List<Card> cards=new List<Card>();
+    // объединяет ссылки на элементы одной карточки заклинания в интерфейсе матча.
     [System.Serializable]
-    private class Card { public Spell spell; public GameObject root; public Text keys; public Image cover; public Text seconds; public SpellIconGraphic icon; }
+    private class Card
+    {
+        public Spell spell;
+        public GameObject root;
+        public Text keys;
+        public Image cover;
+        public Text seconds;
+        public SpellIconGraphic icon;
+        [System.NonSerialized] public int displayedSeconds = -1;
+    }
+    // скрываем интерфейс до появления игрока и подключаем кнопки меню.
     private void Start()
     {
         canvas.enabled=false;
@@ -33,49 +49,81 @@ public class PlayerGameUI : MonoBehaviour
         menuButton.onClick.AddListener(ReturnToMenu);
         quitButton.onClick.AddListener(QuitGame);
     }
+    // ожидаем локального игрока, фильтруем его заклинания и обновляем здоровье, комбинацию и перезарядки.
     private void Update()
     {
+        // интерфейс сцены может запуститься раньше сетевого игрока, поэтому ждём его появления.
         if(caster==null)
         {
             if(NetworkClient.localPlayer==null)return;
             caster=NetworkClient.localPlayer.GetComponentInChildren<PlayerNetworkCaster>();
             if(caster==null)return;
             spells=caster.GetComponent<SpellManager>();health=caster.GetComponent<Health>();
+            comboTracker = caster.GetComponent<InputComboTracker>();
             canvas.enabled=true;built=false;SetPause(false);
         }
         if(Input.GetKeyDown(KeyCode.Escape))SetPause(!InputBlocked);
         scoreboard.SetActive(!InputBlocked&&Input.GetKey(KeyCode.Tab));
         if(caster.LoadoutReady&&!built)
         {
+            // набор фиксируется на матч: доступность карточек достаточно настроить один раз.
             foreach(var card in cards)
             {
                 card.root.SetActive(card.spell.IsAvailable(caster.Loadout));
                 card.keys.text=caster.Loadout.KeysFor(card.spell.Recipe).Replace(" → ","");
             }
             built=true;
+            loadoutCaption = $"Q · {ElementLoadout.Label(caster.Loadout.q)}    E · {ElementLoadout.Label(caster.Loadout.e)}    R · {ElementLoadout.Label(caster.Loadout.r)}\nКомбинация: ";
+            displayedCombo = int.MinValue;
         }
-        status.text=$"Здоровье  {health.CurrentHealth} / {health.MaxHealth}"+(health.Shield>0?$"   Щит  {health.Shield}":"");
+        // текст создаём только при изменении здоровья, а не выделяем одинаковую строку каждый кадр.
+        if (displayedHealth != health.CurrentHealth || displayedShield != health.Shield || displayedMaxHealth != health.MaxHealth)
+        {
+            displayedHealth = health.CurrentHealth;
+            displayedShield = health.Shield;
+            displayedMaxHealth = health.MaxHealth;
+            status.text=$"Здоровье  {displayedHealth} / {displayedMaxHealth}"+(displayedShield>0?$"   Щит  {displayedShield}":"");
+        }
         if (healthFill != null) healthFill.fillAmount = Mathf.Clamp01((float)health.CurrentHealth / Mathf.Max(1, health.MaxHealth));
-        combo.text=health.IsDead?"Возрождение…":caster.LoadoutReady?
-            $"Q · {ElementLoadout.Label(caster.Loadout.q)}    E · {ElementLoadout.Label(caster.Loadout.e)}    R · {ElementLoadout.Label(caster.Loadout.r)}\n"+
-            "Комбинация: "+caster.Loadout.KeysFor(caster.GetComponent<InputComboTracker>().History):"Подготовка стихий…";
+        // код последовательности позволяет заметить изменение без создания строк и массивов при неподвижном вводе.
+        int comboCode = 1;
+        for (int index = 0; index < comboTracker.History.Count; index++)
+            comboCode = comboCode * 6 + (int)comboTracker.History[index] + 1;
+        if (health.IsDead) comboCode = -1;
+        else if (!caster.LoadoutReady) comboCode = -2;
+        if (displayedCombo != comboCode)
+        {
+            displayedCombo = comboCode;
+            combo.text = health.IsDead ? "Возрождение…" : caster.LoadoutReady ?
+                loadoutCaption + caster.Loadout.KeysFor(comboTracker.History) : "Подготовка стихий…";
+        }
         foreach(var card in cards)
         {
+            if (!card.root.activeSelf) continue;
             float remaining=(float)caster.RemainingCooldown(card.spell);
+            // затемнение уменьшается плавно, а число секунд округляется вверх до полной готовности.
             card.cover.fillAmount=Mathf.Clamp01(remaining/card.spell.Cooldown);
-            card.seconds.text=remaining>0?Mathf.CeilToInt(remaining).ToString():"";
+            int secondsLeft = Mathf.CeilToInt(remaining);
+            if (card.displayedSeconds != secondsLeft)
+            {
+                card.displayedSeconds = secondsLeft;
+                card.seconds.text = secondsLeft > 0 ? secondsLeft.ToString() : "";
+            }
             card.icon.color=SpellIconGraphic.Tint(card.spell)*(remaining>0?.65f:1);
         }
+        // обновляем открытую таблицу четыре раза в секунду, а не пересобираем строки каждый кадр.
         if(scoreboard.activeSelf&&Time.unscaledTime>=nextScore){nextScore=Time.unscaledTime+.25f;RefreshScoreboard();}
     }
+    // блокируем локальный ввод и освобождаем курсор; сетевой матч при этом продолжается.
     public void SetPause(bool open)
     {
         InputBlocked=open;if(pause!=null)pause.SetActive(open);
         Cursor.lockState=open?CursorLockMode.None:CursorLockMode.Locked;Cursor.visible=open;
     }
+    // сортируем игроков по убийствам и смертям, затем синхронно заполняем все столбцы таблицы.
     public void RefreshScoreboard()
     {
-        var players=FindObjectsByType<PlayerStats>(FindObjectsSortMode.None).OrderByDescending(p=>p.Kills).ThenBy(p=>p.Deaths).ThenBy(p=>p.netId);
+        var players=PlayerStats.ClientPlayers.OrderByDescending(p=>p.Kills).ThenBy(p=>p.Deaths).ThenBy(p=>p.netId);
         var ordered=players.ToList();
         table.text=string.Join("\n",ordered.Select(p=>p.DisplayName+(p.isLocalPlayer?"  (ты)":"")));
         killColumn.text=string.Join("\n",ordered.Select(p=>p.Kills));
@@ -85,6 +133,7 @@ public class PlayerGameUI : MonoBehaviour
         scoreContent.sizeDelta=new Vector2(0,height);
         foreach(var column in new[]{table,killColumn,deathColumn,pingColumn})column.rectTransform.sizeDelta=new Vector2(column.rectTransform.sizeDelta.x,height);
     }
+    // завершаем локальный хост или клиент и возвращаем свободный курсор.
     public void ReturnToMenu()
     {
         SetPause(false);
@@ -93,6 +142,7 @@ public class PlayerGameUI : MonoBehaviour
         else if(NetworkClient.active)manager.StopClient();
         Cursor.lockState=CursorLockMode.None;Cursor.visible=true;
     }
+    // в редакторе останавливаем игровой режим, в сборке закрываем приложение.
     public void QuitGame()
     {
 #if UNITY_EDITOR
@@ -102,7 +152,8 @@ public class PlayerGameUI : MonoBehaviour
 #endif
     }
 #if UNITY_EDITOR
-    // Run once by the scene migration. Gameplay only updates these saved objects.
+    // создаём интерфейс при подготовке сцены; во время матча обновляем уже сохранённые объекты.
+    // создаём сохраняемую иерархию интерфейса в редакторе; во время матча этот метод недоступен.
     public void EditorBake(SpellManager catalog, Sprite cooldownSprite)
     {
         font=Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");fillSprite=cooldownSprite;
@@ -142,6 +193,7 @@ public class PlayerGameUI : MonoBehaviour
         pause.SetActive(false);
         BuildCards(catalog);
     }
+    // создаём карточки всего каталога, чтобы в матче оставалось только скрыть недоступные.
     private void BuildCards(SpellManager catalog)
     {
         var available=catalog.Spells.Where(s=>s!=null).ToList();
@@ -167,35 +219,41 @@ public class PlayerGameUI : MonoBehaviour
             cards.Add(new Card{spell=spell,root=panel,keys=keys,icon=icon,cover=cover,seconds=seconds});
             panel.SetActive(spell.IsAvailable(ElementLoadout.Default));
         }
-        // Menus must render over cards, which are created after the initial canvas.
+        // переносим меню поверх карточек, добавленных после первоначального создания холста.
         pause.transform.SetAsLastSibling();scoreboard.transform.SetAsLastSibling();
     }
+    // создаём растянутую затемняющую подложку для меню или таблицы игроков.
     private GameObject Shade(Transform parent,string name)
     {
         var go=Panel(parent,name,0,0,0,0,0,0);
         var r=go.GetComponent<RectTransform>();r.anchorMin=Vector2.zero;r.anchorMax=Vector2.one;r.offsetMin=r.offsetMax=Vector2.zero;
         go.GetComponent<Image>().color=new Color(.015f,.025f,.05f,.94f);return go;
     }
+    // создаём прямоугольную панель заданного размера и положения.
     private GameObject Panel(Transform parent,string name,float ax,float ay,float x,float y,float w,float h)
     {
         var go=new GameObject(name,typeof(RectTransform),typeof(Image));go.transform.SetParent(parent,false);
         Place(go,ax,ay,x,y,w,h);go.GetComponent<Image>().color=new Color(.08f,.11f,.18f,.95f);return go;
     }
+    // создаём текстовую подпись, которая не перехватывает нажатия мыши.
     private Text Label(Transform parent,string text,int size,float ax,float ay,float x,float y,float w,float h)
     {
         var go=new GameObject("Label",typeof(RectTransform),typeof(Text));go.transform.SetParent(parent,false);Place(go,ax,ay,x,y,w,h);
         var label=go.GetComponent<Text>();label.font=font;label.fontSize=size;label.color=new Color(.9f,.94f,1);label.text=text;
         label.raycastTarget=false;label.supportRichText=false;return label;
     }
+    // создаём кнопку с подписью; обработчик назначается отдельно при запуске интерфейса.
     private Button Button(Transform parent,string text,float x,float y,float w,float h)
     {
         var go=Panel(parent,text,0,0,x,y,w,h);go.GetComponent<Image>().color=new Color(.16f,.25f,.38f);
         var button=go.AddComponent<Button>();Label(go.transform,text,24,0,0,0,0,w,h).alignment=TextAnchor.MiddleCenter;return button;
     }
+    // задаём якорь, положение и размер элемента относительно родителя.
     private static void Place(GameObject go,float ax,float ay,float x,float y,float w,float h)
     {
         var r=go.GetComponent<RectTransform>();r.anchorMin=r.anchorMax=new Vector2(ax,ay);r.pivot=Vector2.zero;r.anchoredPosition=new Vector2(x,y);r.sizeDelta=new Vector2(w,h);
     }
 #endif
+    // снимаем блокировку ввода и освобождаем курсор при отключении интерфейса.
     private void OnDisable(){InputBlocked=false;Cursor.lockState=CursorLockMode.None;Cursor.visible=true;}
 }

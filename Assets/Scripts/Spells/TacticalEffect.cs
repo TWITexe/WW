@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Mirror;
 using UnityEngine;
 
+// реализует серверное поведение стены, зеркала, печати, притяжения и двойника.
 public class TacticalEffect : NetworkBehaviour
 {
     public TacticalSpell definition;
@@ -10,10 +11,12 @@ public class TacticalEffect : NetworkBehaviour
     private double expiresAt, nextTick;
     private bool spent;
     public bool Armed => NetworkTime.time >= bornAt + 1;
+    // определяем, какие тактические объекты блокируют данный снаряд, учитывая его владельца.
     public bool CanBeHit(uint projectileOwner) => !spent && definition != null &&
         (definition.kind == TacticalKind.StoneWall || (projectileOwner != ownerId &&
         (definition.kind == TacticalKind.IceMirror || definition.kind == TacticalKind.SnowDecoy)));
 
+    // задаём время появления и окончания эффекта по сетевым часам.
     public override void OnStartServer()
     {
         bornAt = NetworkTime.time;
@@ -21,13 +24,16 @@ public class TacticalEffect : NetworkBehaviour
     }
     private float nextAppearanceRefresh;
     private bool collapsed;
+    // пробуем скопировать внешность владельца сразу после появления двойника.
     public override void OnStartClient() => RefreshDecoyAppearance();
+    // периодически повторяем копирование внешности на случай более позднего появления владельца или его цвета.
     private void LateUpdate()
     {
         if(!isClient||Time.time<nextAppearanceRefresh)return;
         nextAppearanceRefresh=Time.time+.2f;
         RefreshDecoyAppearance();
     }
+    // находим модель владельца и переносим оформление на совпадающие по имени части двойника.
     private void RefreshDecoyAppearance()
     {
         if(definition==null||definition.kind!=TacticalKind.SnowDecoy||!NetworkClient.spawned.TryGetValue(ownerId,out var owner))return;
@@ -38,15 +44,18 @@ public class TacticalEffect : NetworkBehaviour
             foreach(var original in originals)
                 if(target.name==original.name){DecoyAppearance.Copy(original,target);break;}
     }
+    // сообщаем клиентам о разрушении двойника.
     [ClientRpc] private void RpcCollapseDecoy() => CollapseDecoy();
+    // один раз создаём локальные обломки двойника с актуальным цветом владельца.
     private void CollapseDecoy()
     {
         if(collapsed)return;
         collapsed=true;
         RefreshDecoyAppearance();
         DecoyAppearance.Collapse(transform.Find("Wizard double"));
-        SpellVfx.Impact(transform.position+Vector3.up*.7f,definition.tint,1);
+        SpellVfx.Impact(transform.position+Vector3.up*.7f,definition.tint,1,definition.hitEffect);
     }
+    // сервер следит за владельцем и сроком жизни, двигает зеркало или двойника и обрабатывает периодические воздействия.
     private void Update()
     {
         if (!isServer || spent || definition == null) return;
@@ -76,6 +85,7 @@ public class TacticalEffect : NetworkBehaviour
             }
         }
     }
+    // проверяем чужую живую цель по радиусу, высоте и видимости, чтобы эффект не действовал сквозь стены.
     private bool EnemyInRange(Health health,float radius)
     {
         if(health==null||health.IsDead||health.netId==ownerId)return false;
@@ -86,6 +96,7 @@ public class TacticalEffect : NetworkBehaviour
             return hit.collider.GetComponentInParent<Health>()==health;
         return true;
     }
+    // двигаем двойника вперёд только при свободном пути и наличии подходящей поверхности.
     private void MoveDecoy()
     {
         Vector3 step=transform.forward*(5*Time.deltaTime);
@@ -95,6 +106,7 @@ public class TacticalEffect : NetworkBehaviour
         if(Physics.Raycast(next+Vector3.up*.5f,Vector3.down,out var floor,1,~(1<<2),QueryTriggerInteraction.Ignore)&&floor.normal.y>.6f)
             transform.position=new Vector3(next.x,floor.point.y+.05f,next.z);
     }
+    // наносим урон всем подходящим целям в радиусе и завершаем печать со вспышкой.
     [Server] private void Detonate()
     {
         if(spent)return;
@@ -102,6 +114,7 @@ public class TacticalEffect : NetworkBehaviour
             if(EnemyInRange(target,definition.radius))target.TakeSpellDamage(definition.damage,ownerId);
         Finish(true);
     }
+    // при чужом попадании в двойника замедляем ближайшего видимого противника и разрушаем копию.
     [Server] public void ProjectileHit(uint attacker)
     {
         if(spent||definition.kind!=TacticalKind.SnowDecoy||attacker==ownerId)return;
@@ -115,6 +128,7 @@ public class TacticalEffect : NetworkBehaviour
         closest?.GetComponent<RelativeMovement>()?.ApplySlow(.5f,2);
         Finish(true);
     }
+    // однократно завершаем эффект, запускаем нужное разрушение на клиентах и удаляем сетевой объект.
     [Server] private void Finish(bool burst)
     {
         if(spent)return;spent=true;
@@ -123,12 +137,24 @@ public class TacticalEffect : NetworkBehaviour
             if(NetworkClient.active && NetworkServer.active)CollapseDecoy();
             RpcCollapseDecoy();
         }
-        else if(burst)RpcShatter(transform.position+Vector3.up*.4f);
+        else if (burst)
+        {
+            Vector3 point = transform.position + Vector3.up * .4f;
+            if (NetworkClient.active) ShowShatter(point);
+            RpcShatter(point);
+        }
         NetworkServer.Destroy(gameObject);
     }
-    [ClientRpc] private void RpcShatter(Vector3 position)=>SpellVfx.Impact(position,definition.tint,1.4f);
+    // показываем локальные частицы разрушения тактического объекта.
+    [ClientRpc] private void RpcShatter(Vector3 position)
+    {
+        if (!isServer) ShowShatter(position);
+    }
+    // хост вызывает графику напрямую перед удалением сетевого объекта.
+    private void ShowShatter(Vector3 position)=>SpellVfx.Impact(position,definition.tint,1.4f,definition.hitEffect);
 
-    // Called by all three projectile implementations before applying damage.
+    // все три реализации снарядов проверяют отражение перед нанесением урона.
+    // зеркало перенаправляет снаряд к прежнему владельцу, меняет авторство и обновляет исключения столкновений.
     public static bool TryReflect(Collider hit,Transform projectile,uint incomingOwner,out uint reflectedOwner)
     {
         reflectedOwner=incomingOwner;
@@ -143,9 +169,11 @@ public class TacticalEffect : NetworkBehaviour
         }
         if(direction.sqrMagnitude<.01f)direction=-projectile.forward;
         reflectedOwner=mirror.ownerId;
+        // отражённый снаряд теперь принадлежит владельцу зеркала, в том числе для зачёта урона.
         body.linearVelocity=direction*Mathf.Max(1,body.linearVelocity.magnitude);
         projectile.rotation=Quaternion.LookRotation(direction);
         projectile.position+=direction*.15f;
+        // прежнего владельца снова разрешаем задеть, а нового исключаем из столкновений.
         foreach(var health in Health.ServerInstances)
             foreach(var targetCollider in health.GetComponentsInChildren<Collider>())
                 foreach(var sourceCollider in projectile.GetComponentsInChildren<Collider>())

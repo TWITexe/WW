@@ -2,8 +2,10 @@ using System;
 using TMPro;
 using UnityEditor;
 using UnityEngine;
+// настраивает высоту стены, префаб цифр урона и частицы попадания.
 public static class CombatFeedbackBuilder
 {
+ // сохраняем изменения префабов и описания стены, затем проверяем границы разброса урона.
  public static void Apply()
  {
   string wallPath="Assets/TacticalSpells/StoneWall.prefab";var wall=PrefabUtility.LoadPrefabContents(wallPath);

@@ -1,6 +1,7 @@
 using UnityEngine;
 
-// Cosmetic effects are local; damage and area timing belong to ElementalEffect on the server.
+// графика создаётся локально; урон и время действия области рассчитывает серверный ElementalEffect.
+// создаёт локальные частицы, границы областей и спираль торнадо без расчёта урона.
 public class ElementalVisual : MonoBehaviour
 {
     public Material particleMaterial;
@@ -11,6 +12,7 @@ public class ElementalVisual : MonoBehaviour
     public float tornadoHeight = 7;
     private ElementalSpell spell;
     private LineRenderer vortex;
+    // подбираем визуальное оформление по типу эффекта и создаём дочерние графические объекты.
     private void Start()
     {
         if (Application.isBatchMode && SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null) return;
@@ -21,7 +23,7 @@ public class ElementalVisual : MonoBehaviour
         Color tint = spell != null ? spell.tint : fallbackTint;
         if (bolt && projectileVisualScale > 1)
         {
-            // Scale only graphics: network movement and hitboxes keep their size.
+            // увеличиваем только графику, сохраняя размеры коллайдеров и сетевое движение.
             foreach (var renderer in GetComponentsInChildren<MeshRenderer>())
             {
                 var filter = renderer.GetComponent<MeshFilter>();
@@ -74,6 +76,7 @@ public class ElementalVisual : MonoBehaviour
             vortex.sharedMaterial = lineMaterial;
         }
     }
+    // перестраиваем вращающуюся спираль торнадо по высоте и радиусу заклинания.
     private void Update()
     {
         if (vortex == null) return;
@@ -85,6 +88,7 @@ public class ElementalVisual : MonoBehaviour
             vortex.SetPosition(i, new Vector3(Mathf.Cos(angle) * radius, t * tornadoHeight, Mathf.Sin(angle) * radius));
         }
     }
+    // создаём короткую декоративную вспышку без коллайдера.
     public static void Burst(Vector3 position, Color tint, float radius)
     {
         var sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
@@ -100,16 +104,19 @@ public class ElementalVisual : MonoBehaviour
     }
 }
 
+// уменьшает сферу вспышки и освобождает созданный специально для неё материал.
 public class SpellImpactFlash : MonoBehaviour
 {
     public float radius = 1;
     public Material ownedMaterial;
     private float age;
+    // сжимаем вспышку до нуля и удаляем её через четверть секунды.
     private void Update()
     {
         age += Time.deltaTime;
         transform.localScale = Vector3.one * Mathf.Lerp(radius * 0.7f, 0, age / 0.25f);
         if (age >= 0.25f) Destroy(gameObject);
     }
+    // освобождаем принадлежащий вспышке материал вместе с объектом.
     private void OnDestroy() { if (ownedMaterial != null) Destroy(ownedMaterial); }
 }

@@ -1,15 +1,17 @@
 using UnityEngine;
 
+// рассчитывает разброс урона и определяет попадание по высоте видимой головы.
 public static class SpellDamage
 {
     public const float Spread = .1f;
     public const float HeadMultiplier = 1.5f;
+    // применяем разброс в десять процентов и множитель головы; sample задаёт положение внутри диапазона.
     public static int Roll(int damage, bool headshot, float sample)
     {
         if (damage <= 0) return 0;
         return Mathf.Max(1, Mathf.RoundToInt(damage * Mathf.Lerp(1-Spread,1+Spread,Mathf.Clamp01(sample)) * (headshot ? HeadMultiplier : 1)));
     }
-    // The contact height is compared with the visible head, excluding the hat.
+    // проверяем высоту контакта относительно геометрии головы, не включая шляпу.
     public static bool IsHeadshot(Health target, Vector3 contact)
     {
         var appearance=target.GetComponent<WizardAppearance>();

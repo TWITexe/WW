@@ -2,8 +2,10 @@ using System;
 using UnityEditor;
 using UnityEngine;
 
+// создаёт префаб локальных частиц попадания в папке Resources.
 public static class ProjectileImpactSetup
 {
+    // настраиваем одноразовый выброс частиц без коллайдера и сохраняем его для загрузки во время игры.
     public static void Apply()
     {
         var go=new GameObject("SpellProjectileImpact",typeof(ParticleSystem));

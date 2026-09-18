@@ -2,6 +2,7 @@ using Mirror;
 using System.Collections.Generic;
 using UnityEngine;
 
+// серверная ловушка с отдельным таймером урона для каждой находящейся внутри цели.
 public class Trap : NetworkBehaviour
 {
     [SerializeField] private int damage = 10;
@@ -10,13 +11,15 @@ public class Trap : NetworkBehaviour
     private readonly Dictionary<Health, double> nextDamage = new Dictionary<Health, double>();
     private readonly HashSet<Health> occupants = new HashSet<Health>();
     private readonly List<Health> expired = new List<Health>();
+    // собираем дочерние коллайдеры, задающие опасную область.
     private void Awake() => volumes = GetComponentsInChildren<Collider>();
+    // заново определяем цели в области, наносим периодический урон и удаляем таймеры вышедших игроков.
     private void FixedUpdate()
     {
         if (!isServer) return;
         occupants.Clear();
-        // A moving CharacterController is not reliably returned by shallow floor
-        // overlap queries. Use its server transform and capsule dimensions directly.
+        // движущийся контроллер может не попасть в физический запрос тонкой напольной области.
+        // поэтому проверяем его серверную позицию и размеры капсулы напрямую.
         foreach (var health in Health.ServerInstances)
         {
             if (health == null || health.IsDead || !health.gameObject.activeInHierarchy) continue;
@@ -30,8 +33,8 @@ public class Trap : NetworkBehaviour
         {
             if (volume == null || !volume.enabled || !volume.gameObject.activeInHierarchy || !volume.isTrigger) continue;
             var bounds = volume.bounds;
-            // Query the actual oriented box. CharacterController is a query shape;
-            // a second ComputePenetration check can reject its shallow foot overlap.
+            // учитываем поворот ящика при проверке области; для контроллера дополнительная
+            // проверка проникновения может ошибочно отвергнуть неглубокий контакт у стоп.
             Collider[] overlaps;
             if (volume is BoxCollider box)
             {
@@ -45,8 +48,8 @@ public class Trap : NetworkBehaviour
             {
                 var health = other.GetComponentInParent<Health>();
                 if (health == null || health.IsDead || !other.enabled) continue;
-                // Characters were checked from their current server pose above;
-                // never re-add one from a stale physics pose after teleporting.
+                // персонажи уже проверены по текущей серверной позиции выше;
+                // не добавляем их повторно по устаревшей физической позиции после телепортации.
                 if (volume is BoxCollider && health.GetComponent<CharacterController>() != null) continue;
                 if (volume is BoxCollider || Physics.ComputePenetration(volume, volume.transform.position, volume.transform.rotation,
                     other, other.transform.position, other.transform.rotation, out _, out _))
@@ -65,6 +68,7 @@ public class Trap : NetworkBehaviour
             if (entry.Key == null || entry.Key.IsDead || !occupants.Contains(entry.Key)) expired.Add(entry.Key);
         foreach (var health in expired) nextDamage.Remove(health);
     }
+    // переводим капсулу в систему повёрнутого ящика и сравниваем расстояние до её оси с радиусом.
     private static bool CapsuleOverlapsBox(CharacterController controller, BoxCollider box)
     {
         Vector3 playerScale=controller.transform.lossyScale;
@@ -77,8 +81,8 @@ public class Trap : NetworkBehaviour
         Vector3 a=toBox*(center-axis-boxCenter), b=toBox*(center+axis-boxCenter);
         Vector3 scale=box.transform.lossyScale;
         Vector3 extents=Vector3.Scale(box.size,new Vector3(Mathf.Abs(scale.x),Mathf.Abs(scale.y),Mathf.Abs(scale.z)))*.5f;
-        // Squared distance from a segment to a box is convex. This also handles
-        // tilted traps without treating their larger world AABB as damaging space.
+        // квадрат расстояния от точки отрезка до ящика — выпуклая функция, что позволяет искать минимум.
+        // так повёрнутая ловушка не наносит урон во всём своём увеличенном мировом ограничивающем объёме.
         float lo=0,hi=1;
         for(int i=0;i<24;i++)
         {
@@ -89,10 +93,12 @@ public class Trap : NetworkBehaviour
         float distance=Mathf.Min(DistanceToBox(a,extents),DistanceToBox(b,extents),DistanceToBox(Vector3.Lerp(a,b,(lo+hi)*.5f),extents));
         return distance<=radius*radius;
     }
+    // возвращаем квадрат расстояния до ящика; для точки внутри результат равен нулю.
     private static float DistanceToBox(Vector3 point,Vector3 extents)
     {
         Vector3 outside=new Vector3(Mathf.Max(0,Mathf.Abs(point.x)-extents.x),Mathf.Max(0,Mathf.Abs(point.y)-extents.y),Mathf.Max(0,Mathf.Abs(point.z)-extents.z));
         return outside.sqrMagnitude;
     }
+    // очищаем цели и таймеры, чтобы повторное включение ловушки начиналось с чистого состояния.
     private void OnDisable() { nextDamage.Clear(); occupants.Clear(); }
 }

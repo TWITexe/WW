@@ -6,6 +6,7 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 
+// проверяет созданные визуальные элементы заклинаний в отдельной тестовой сцене редактора.
 [InitializeOnLoad]
 public static class SpellReadabilitySmoke
 {
@@ -14,9 +15,13 @@ public static class SpellReadabilitySmoke
     static int stage, checks, frames;
     static Camera camera;
     static readonly List<GameObject> objects=new List<GameObject>();
+    // регистрируем обработчик поэтапной визуальной проверки.
     static SpellReadabilitySmoke(){EditorApplication.update+=Tick;}
+    // применяем настройки читаемости и запускаем проверку в пустой сцене игрового режима.
     public static void Run(){SpellReadabilityTuning.Apply();SessionState.SetBool(Flag,true);EditorSceneManager.NewScene(NewSceneSetup.EmptyScene,NewSceneMode.Single);EditorApplication.isPlaying=true;}
+    // завершаем сценарий при неверном состоянии и считаем успешные проверки.
     static void Check(bool condition,string message){if(!condition)throw new Exception(message);checks++;}
+    // создаём тестовые эффекты, даём им обновиться и проверяем визуальные параметры по этапам.
     static void Tick()
     {
         if(!SessionState.GetBool(Flag,false)||!EditorApplication.isPlaying||EditorApplication.isCompiling)return;
@@ -42,7 +47,7 @@ public static class SpellReadabilitySmoke
                     var root=UnityEngine.Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>(path),new Vector3(i%4*6-9,1,i/4*6),Quaternion.identity);
                     root.GetComponent<Rigidbody>().isKinematic=true;objects.Add(root);i++;
                 }
-                SpellVfx.Burst(new Vector3(-9,1,18),Color.cyan,3,3);
+                SpellVfx.Burst(new Vector3(-9,1,18),Color.cyan,3,SpellHitKind.Snow);
                 next=EditorApplication.timeSinceStartup+2;stage=1;
             }
             else

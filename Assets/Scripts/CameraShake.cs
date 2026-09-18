@@ -1,5 +1,6 @@
 using UnityEngine;
 
+// добавляет покачивание камеры при движении через смещение в OrbitCamera.
 public class CameraShake : MonoBehaviour
 {
     public float shakeAmount = 0.1f;
@@ -9,11 +10,13 @@ public class CameraShake : MonoBehaviour
     private float shakeTimer;
     private OrbitCamera orbitCamera;
 
+    // получаем контроллер камеры, которому будем передавать смещение.
     void Start()
     {
         orbitCamera = GetComponent<OrbitCamera>();
     }
 
+    // рассчитываем плавное покачивание; после остановки сбрасываем смещение и фазу.
     void LateUpdate()
     {
         if (isShaking)
@@ -31,6 +34,7 @@ public class CameraShake : MonoBehaviour
         }
     }
 
+    // включаем покачивание и подбираем его частоту по переданному значению скорости.
     public void SetShaking(bool value, float speed)
     {
         isShaking = value;

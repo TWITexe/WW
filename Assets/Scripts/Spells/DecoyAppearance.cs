@@ -1,8 +1,10 @@
 using UnityEngine;
 
-// Local cosmetic fragments; never participate in spell hits or player movement.
+// локальные декоративные обломки не участвуют в попаданиях заклинаний и движении игроков.
+// копирует оформление мага на двойника и создаёт декоративные обломки при его разрушении.
 public static class DecoyAppearance
 {
+    // переносим общие материалы и индивидуальную окраску, включая отдельные слоты материалов.
     public static void Copy(Renderer source, Renderer target)
     {
         target.sharedMaterials=source.sharedMaterials;
@@ -12,10 +14,11 @@ public static class DecoyAppearance
         for(int i=0;i<source.sharedMaterials.Length;i++)
         {
             block.Clear();source.GetPropertyBlock(block,i);
-            // An empty per-material block must not override the robe/hat's global tint.
+            // пустой блок отдельного материала не должен перекрывать общую окраску мантии или шляпы.
             target.SetPropertyBlock(block.isEmpty?null:block,i);
         }
     }
+    // разбиваем двойника на локальные части; обломки не мешают игрокам и исчезают через три секунды.
     public static void Collapse(Transform model)
     {
         if(model==null)return;

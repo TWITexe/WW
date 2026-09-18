@@ -1,8 +1,10 @@
 using UnityEditor;
 using UnityEngine;
 
+// записывает настройки падения, коллайдера, статистики и камеры в префаб игрока.
 public static class GameplayPolishBuilder
 {
+    // редактируем содержимое префаба и сохраняем его, освобождая загруженную копию в finally.
     public static void Apply()
     {
         const string path="Assets/Prefabs/Player.prefab";

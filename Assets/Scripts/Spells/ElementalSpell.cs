@@ -1,7 +1,9 @@
 using UnityEngine;
 
+// определяет способ применения стихии: снаряд, наземная зона, вихрь, взрыв вокруг мага или щит.
 public enum ElementalCastMode { Bolt, GroundZone, Tornado, SelfBurst, Shield }
 
+// хранит настройки стихийного заклинания отдельно от сетевого объекта его эффекта.
 [CreateAssetMenu(menuName = "Spells/Elemental Spell")]
 public class ElementalSpell : Spell
 {
@@ -18,6 +20,7 @@ public class ElementalSpell : Spell
     [Range(0.2f, 1f)] public float slow = 1;
     public float slowDuration = 2;
     public int shieldAmount = 50;
+    // передаём серверному заклинателю настройки этого ассета и направление применения.
     public override bool ActivateServer(PlayerNetworkCaster caster, Vector3 direction)
         => caster.CastElemental(this, direction);
 }

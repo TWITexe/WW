@@ -2,6 +2,7 @@ using Mirror;
 using UnityEngine;
 using UnityEngine.UI;
 
+// позволяет до подключения выбрать стихии и просмотреть доступные рецепты в книге заклинаний.
 public class ElementLoadoutUI : MonoBehaviour
 {
     [SerializeField] private Canvas canvas;
@@ -12,6 +13,7 @@ public class ElementLoadoutUI : MonoBehaviour
     [SerializeField] private Button[] slotButtons = new Button[3];
     [SerializeField] private Button opener, close, filter;
     [SerializeField] private Button[] elementButtons = new Button[5];
+    // связывает заклинание с фоном и текстом состояния его карточки в книге.
     [System.Serializable]
     private class SpellCard { public Spell spell; public Image background; public Text status; }
     [SerializeField] private System.Collections.Generic.List<SpellCard> spellCards = new System.Collections.Generic.List<SpellCard>();
@@ -21,6 +23,7 @@ public class ElementLoadoutUI : MonoBehaviour
     private Color ink = new Color(0.86f, 0.9f, 0.97f);
     private Color panel = new Color(0.07f, 0.09f, 0.15f, 1);
     private readonly string[] names = { "Огонь", "Воздух", "Лёд", "Земля", "Вода" };
+    // подключаем кнопки выбора слотов, стихий и фильтра к уже сохранённому интерфейсу.
     private void Start()
     {
         opener.onClick.AddListener(()=>{screen.SetActive(true);Refresh();});
@@ -31,6 +34,7 @@ public class ElementLoadoutUI : MonoBehaviour
         screen.SetActive(false);Refresh();
         Cursor.lockState=CursorLockMode.None;Cursor.visible=true;
     }
+    // скрываем книгу после запуска сети; до матча разрешаем закрывать её клавишей Escape.
     private void Update()
     {
         if (canvas == null) return;
@@ -38,6 +42,7 @@ public class ElementLoadoutUI : MonoBehaviour
         if (canvas.enabled && screen.activeSelf && Input.GetKeyDown(KeyCode.Escape)) screen.SetActive(false);
     }
 #if UNITY_EDITOR
+    // создаём иерархию книги и карточки в редакторе для последующего сохранения в префаб.
     public void EditorBake(SpellManager catalog)
     {
         font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
@@ -55,7 +60,7 @@ public class ElementLoadoutUI : MonoBehaviour
         var content = Panel(screen.transform, "Spellbook", panel);
         Rect(content, 0.5f, 0.5f, new Vector2(-600, -325), new Vector2(1200, 650));
         TextAt(content.transform, "КНИГА СТИХИЙ", 28, new Vector2(26, -18), new Vector2(850, 40));
-        TextAt(content.transform, "Три стихии. Комбинации из трёх нажатий. Порядок не важен.", 20,
+        TextAt(content.transform, "Три стихии. Комбинации из трёх нажатий. Порядок важен.", 20,
             new Vector2(26, -62), new Vector2(920, 28));
         close = Button(content.transform, "Закрыть  ×", () => screen.SetActive(false));
         Rect(close.gameObject, 0, 1, new Vector2(1020, -65), new Vector2(154, 40));
@@ -107,6 +112,7 @@ public class ElementLoadoutUI : MonoBehaviour
         screen.SetActive(false);
     }
 #endif
+    // обновляем назначения клавиш, доступность карточек и счётчик под текущий набор стихий.
     private void Refresh()
     {
         var settings = LocalPlayerSettings.Instance;
@@ -132,6 +138,7 @@ public class ElementLoadoutUI : MonoBehaviour
         heading.text=$"ДОСТУПНО {available} / {spellCards.Count}"+(onlyAvailable?"   ·   выбранный набор":"   ·   все заклинания");
     }
 #if UNITY_EDITOR
+    // заранее создаём карточки каталога с названиями, рецептами, описаниями и перезарядкой.
     private void EditorBakeCards(SpellManager catalog)
     {
         foreach (Spell spell in catalog.Spells)
@@ -146,7 +153,7 @@ public class ElementLoadoutUI : MonoBehaviour
             TextAt(card.transform, spell.Name, 26, new Vector2(88, -8), new Vector2(490, 36));
             var recipeNames = new string[spell.Recipe.Count];
             for (int i = 0; i < recipeNames.Length; i++) recipeNames[i] = ElementLoadout.Label(spell.Recipe[i]);
-            TextAt(card.transform, string.Join(" + ", recipeNames), 18, new Vector2(88, -46), new Vector2(490, 28));
+            TextAt(card.transform, string.Join(" → ", recipeNames), 18, new Vector2(88, -46), new Vector2(490, 28));
             TextAt(card.transform, spell.Description, 18, new Vector2(88, -80), new Vector2(475, 64));
             var status = TextAt(card.transform, unlocked ? ElementLoadout.Default.KeysFor(spell.Recipe) + "\n" + spell.Cooldown.ToString("0.#") + " с" :
                 "Нужны другие\nстихии", 22, new Vector2(580, -34), new Vector2(190, 76));
@@ -157,11 +164,13 @@ public class ElementLoadoutUI : MonoBehaviour
         for(int i=0;i<3;i++)slotLabels[i].text=(i==0?"Q":i==1?"E":"R")+" · "+ElementLoadout.Label(ElementLoadout.Default.Get(i));
         heading.text="КАТАЛОГ ЗАКЛИНАНИЙ";
     }
+    // создаём дочернюю панель с заданным цветом фона.
     private GameObject Panel(Transform parent, string name, Color color)
     {
         var go = new GameObject(name, typeof(RectTransform), typeof(Image));
         go.transform.SetParent(parent, false); go.GetComponent<Image>().color = color; return go;
     }
+    // создаём кнопку и подпись; обработчики подключаются в Start к сохранённым ссылкам.
     private Button Button(Transform parent, string label, UnityEngine.Events.UnityAction click)
     {
         var go = Panel(parent, label, new Color(0.14f, 0.2f, 0.3f));
@@ -170,6 +179,7 @@ public class ElementLoadoutUI : MonoBehaviour
         Stretch(text.rectTransform); text.alignment = TextAnchor.MiddleCenter;
         return b;
     }
+    // создаём текст с отступом от верхнего края и заданными размерами.
     private Text TextAt(Transform parent, string value, int size, Vector2 offset, Vector2 dimensions)
     {
         var go = new GameObject("Label", typeof(RectTransform), typeof(Text)); go.transform.SetParent(parent, false);
@@ -178,11 +188,13 @@ public class ElementLoadoutUI : MonoBehaviour
         Rect(go, 0, 1, new Vector2(offset.x, offset.y - dimensions.y), dimensions);
         return t;
     }
+    // задаём якорь, нижний левый угол и размеры прямоугольника интерфейса.
     private static void Rect(GameObject go, float x, float y, Vector2 offset, Vector2 dimensions)
     {
         var r = go.GetComponent<RectTransform>(); r.anchorMin = r.anchorMax = new Vector2(x, y);
         r.pivot = Vector2.zero; r.anchoredPosition = offset; r.sizeDelta = dimensions;
     }
+    // растягиваем элемент на всю площадь родителя без отступов.
     private static void Stretch(RectTransform rect)
     {
         rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one;

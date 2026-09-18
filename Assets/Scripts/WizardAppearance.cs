@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Mirror;
 using UnityEngine;
 
+// управляет внешностью мага, поворотом головы, парящим посохом и локальными обломками при смерти.
 [DefaultExecutionOrder(100)]
 public class WizardAppearance : NetworkBehaviour
 {
@@ -27,6 +28,7 @@ public class WizardAppearance : NetworkBehaviour
     private Collider[] bodyColliders;
     private bool[] colliderDefaults;
     private readonly List<GameObject> debris = new List<GameObject>();
+    // запоминаем исходные позы частей модели и состояние коллайдеров для восстановления после смерти.
     private void Awake()
     {
         health = GetComponent<Health>();
@@ -47,6 +49,7 @@ public class WizardAppearance : NetworkBehaviour
         colliderDefaults = new bool[bodyColliders.Length];
         for (int i = 0; i < bodyColliders.Length; i++) colliderDefaults[i] = bodyColliders[i].enabled;
     }
+    // реагируем на изменение состояния смерти: скрываем модель, отключаем коллайдеры и создаём обломки.
     private void Update()
     {
         if (health == null || visualRoot == null) return;
@@ -58,6 +61,7 @@ public class WizardAppearance : NetworkBehaviour
         visualRoot.gameObject.SetActive(!dead);
         wasDead = dead;
     }
+    // сглаживаем поворот головы и отставание посоха; направление взгляда отправляем не чаще десяти раз в секунду.
     private void LateUpdate()
     {
         if (!isClient || visualRoot == null) return;
@@ -75,6 +79,7 @@ public class WizardAppearance : NetworkBehaviour
             }
         }
         bool reset = !poseReady || (transform.position - lastPosition).sqrMagnitude > 9;
+        // после возрождения или резкого переноса сразу восстанавливаем позу, не тянем посох через арену.
         if (reset) headYaw = bodyYaw;
         headYaw = Mathf.LerpAngle(headYaw, targetYaw, 1 - Mathf.Exp(-headTurnSpeed * Time.deltaTime));
         float offset = Mathf.Clamp(Mathf.DeltaAngle(bodyYaw, headYaw), -maxHeadYaw, maxHeadYaw);
@@ -96,12 +101,14 @@ public class WizardAppearance : NetworkBehaviour
         lastPosition = transform.position;
         poseReady = true;
     }
+    // сервер отклоняет некорректные числа и нормализует угол взгляда для синхронизации.
     [Command]
     private void CmdSetLookYaw(float yaw)
     {
         if (float.IsNaN(yaw) || float.IsInfinity(yaw)) return;
         lookYaw = Mathf.Repeat(yaw, 360);
     }
+    // окрашиваем мантию, шляпу и кристалл через блоки свойств, не изменяя общие материалы.
     public void Tint(Color teamColor)
     {
         if (visualRoot == null) return;
@@ -114,8 +121,8 @@ public class WizardAppearance : NetworkBehaviour
                 block.SetColor("_BaseColor", teamColor);
                 renderer.SetPropertyBlock(block);
             }
-            // The staff is one mesh with wood, metal and crystal material slots.
-            // Tint only the crystal, leaving the shaft and gold trim untouched.
+            // посох состоит из одного меша с отдельными материалами дерева, металла и кристалла.
+            // окрашиваем только кристалл, сохраняя исходные цвета дерева и золотой отделки.
             Material[] materials = renderer.sharedMaterials;
             for (int i = 0; i < materials.Length; i++)
                 if (materials[i] != null && materials[i].name.Contains("white crystal"))
@@ -127,6 +134,7 @@ public class WizardAppearance : NetworkBehaviour
                 }
         }
     }
+    // создаём локальные физические копии частей мага, исключаем столкновения с игроками и удаляем через шесть секунд.
     private void BreakApart()
     {
         foreach (Transform piece in pieces)
@@ -136,7 +144,7 @@ public class WizardAppearance : NetworkBehaviour
             fragment.name = "Wizard debris - " + piece.name;
             fragment.transform.localScale = piece.lossyScale;
             var renderers = fragment.GetComponentsInChildren<Renderer>();
-            // Box colliders fit groups of imported meshes and avoid expensive convex cooking.
+            // простые коллайдеры охватывают группы мешей без затрат на построение выпуклой геометрии.
             Bounds bounds = new Bounds();
             bool first = true;
             foreach (Renderer renderer in renderers)
@@ -167,6 +175,7 @@ public class WizardAppearance : NetworkBehaviour
         }
         debris.RemoveAll(item => item == null);
     }
+    // удаляем оставшиеся обломки вместе с владельцем.
     private void OnDestroy()
     {
         foreach (GameObject fragment in debris) if (fragment != null) Destroy(fragment);

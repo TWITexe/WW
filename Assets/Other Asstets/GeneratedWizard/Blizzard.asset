@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a2f542083314fc19e519c4b42982f79, type: 3}
+  m_Name: Blizzard
+  m_EditorClassIdentifier: 
+  hitEffect: 2
+  displayName: "\u041C\u0435\u0442\u0435\u043B\u044C"
+  description: "\u041E\u0431\u043B\u0430\u0441\u0442\u044C \u043D\u0430 5 \u0441\u0435\u043A\u0443\u043D\u0434:
+    4 \u0443\u0440\u043E\u043D\u0430 \u043A\u0430\u0436\u0434\u044B\u0435 0,5 \u0441;
+    \u0437\u0430\u043C\u0435\u0434\u043B\u0435\u043D\u0438\u0435 50%."
+  recipe: 010000000200000002000000
+  cooldown: 9
+  mode: 1
+  effectPrefab: {fileID: 1757636650893641100, guid: 43c6b14c058741c45a380ba3974ca89d, type: 3}
+  tint: {r: 0.55, g: 0.75, b: 1, a: 1}
+  speed: 0
+  duration: 7.5
+  radius: 3.5
+  damage: 4
+  tickInterval: 0.5
+  knockback: 0
+  lift: 0
+  slow: 0.5
+  slowDuration: 2
+  shieldAmount: 50

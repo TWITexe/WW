@@ -3,6 +3,7 @@ using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
 
+// обрабатывает создание комнаты, запуск сетевых режимов и открытие окон меню.
 public class MainMenuUI : MonoBehaviour
 {
     [SerializeField] private RoomNetworkDiscovery discovery;
@@ -10,6 +11,7 @@ public class MainMenuUI : MonoBehaviour
     [SerializeField] private TMP_InputField roomNameInput;
     [SerializeField] private Button confirmRoomButton;
 
+    // подключаем проверку имени комнаты и подтверждение через поле ввода.
     private void Start()
     {
         if (roomNameInput != null)
@@ -20,11 +22,20 @@ public class MainMenuUI : MonoBehaviour
         }
     }
 
+    // окно создания комнаты находится отдельно от connectui, поэтому закрываем его по esc самостоятельно.
+    private void Update()
+    {
+        if (createRoomPanel != null && createRoomPanel.activeSelf && Input.GetKeyDown(KeyCode.Escape))
+            CancelCreateRoom();
+    }
+
+    // разрешаем создание комнаты только при непустом имени.
     private void UpdateRoomButton(string value)
     {
         if (confirmRoomButton != null) confirmRoomButton.interactable = !string.IsNullOrWhiteSpace(value);
     }
 
+    // открываем диалог с последним именем комнаты; хост пока не запускаем.
     public void CreateRoom()
     {
         if (NetworkClient.active || NetworkServer.active) return;
@@ -41,11 +52,13 @@ public class MainMenuUI : MonoBehaviour
         roomNameInput.ActivateInputField();
     }
 
+    // закрываем диалог без создания сетевой сессии.
     public void CancelCreateRoom()
     {
         if (createRoomPanel != null) createRoomPanel.SetActive(false);
     }
 
+    // проверяем имя, сохраняем его, запускаем хост и объявляем комнату в локальной сети.
     public void ConfirmCreateRoom()
     {
         if (createRoomPanel == null || !createRoomPanel.activeInHierarchy || roomNameInput == null || NetworkClient.active || NetworkServer.active) return;
@@ -67,11 +80,13 @@ public class MainMenuUI : MonoBehaviour
             discovery.AdvertiseServer();
     }
 
+    // запускаем клиент с адресом, уже заданным в NetworkManager.
     public void ConnectToServer()
     {
         NetworkManager.singleton.StartClient();
     }
 
+    // запускаем выделенный сервер и объявляем его через поиск комнат.
     public void CreateServer()
     {
         NetworkManager.singleton.StartServer();
@@ -80,10 +95,12 @@ public class MainMenuUI : MonoBehaviour
             discovery.AdvertiseServer();
     }
 
+    // скрываем окно, переданное обработчиком кнопки.
     public void CloseWindow(GameObject window)
     {
         window.SetActive(false);
     }
+    // показываем окно, переданное обработчиком кнопки.
     public void OpenWindow(GameObject window)
     {
         window.SetActive(true);

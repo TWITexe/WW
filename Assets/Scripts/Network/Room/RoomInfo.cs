@@ -1,5 +1,6 @@
 using System;
 
+// содержит имя комнаты, адрес подключения и количество занятых и доступных мест.
 [Serializable]
 public class RoomInfo
 {
@@ -9,6 +10,7 @@ public class RoomInfo
     public int players;
     public int maxPlayers;
 
+    // заполняем данные одной комнаты из ответа выбранного источника.
     public RoomInfo(string roomName, string address, ushort port, int players, int maxPlayers)
     {
         this.roomName = roomName;

@@ -5,6 +5,7 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 
+// проверяет, что активна только локальная камера, а собственные надписи над головой скрыты.
 [InitializeOnLoad]
 public static class LocalViewRegression
 {
@@ -13,18 +14,22 @@ public static class LocalViewRegression
     static int stage, checks;
     static GameObject remote;
     static Camera localCamera;
+    // подключаем тестовый сценарий к циклу обновления редактора.
     static LocalViewRegression() { EditorApplication.update += Tick; }
+    // открываем меню и разрешаем выполнение проверки после перехода в игровой режим.
     public static void Run()
     {
         SessionState.SetBool(Flag, true);
         EditorSceneManager.OpenScene("Assets/Scenes/Menu.unity");
         EditorApplication.isPlaying = true;
     }
+    // учитываем успешную проверку либо останавливаем сценарий с описанием ошибки.
     static void Check(bool value, string message)
     {
         if (!value) throw new Exception("Local view: " + message);
         checks++;
     }
+    // запускаем хост, создаём второго персонажа и проверяем камеры, подписи и единственный AudioListener.
     static void Tick()
     {
         if (!SessionState.GetBool(Flag, false) || !EditorApplication.isPlaying || EditorApplication.isCompiling) return;

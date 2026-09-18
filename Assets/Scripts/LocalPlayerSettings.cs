@@ -1,12 +1,15 @@
 using UnityEngine;
 
+// хранит выбранные стихии и внешний вид локального игрока при переходах между сценами.
 public class LocalPlayerSettings : MonoBehaviour
 {
     public static LocalPlayerSettings Instance { get; private set; }
 
     public PlayerCosmeticSettings CosmeticSettings { get; private set; }
     public ElementLoadout Loadout { get; private set; }
+    public event System.Action<PlayerColorId> PreferredColorChanged;
 
+    // оставляем один экземпляр настроек и загружаем сохранённый набор стихий с проверкой корректности.
     private void Awake()
     {
         if (Instance != null)
@@ -33,16 +36,21 @@ public class LocalPlayerSettings : MonoBehaviour
         DontDestroyOnLoad(gameObject);
     }
 
+    // запоминаем желаемый цвет; свободный цвет в матче окончательно назначит сервер.
     public void SetPreferredColor(PlayerColorId colorId)
     {
+        if (CosmeticSettings.preferredColor == colorId) return;
         CosmeticSettings.preferredColor = colorId;
+        PreferredColorChanged?.Invoke(colorId);
     }
 
+    // сохраняем введённое имя в настройках текущего сеанса.
     public void SetNickname(string nickname)
     {
         CosmeticSettings.nickname = nickname;
     }
 
+    // вне матча меняем привязку стихии и сохраняем все три слота в PlayerPrefs.
     public void SetElement(int slot, MagicElement element)
     {
         if (Mirror.NetworkClient.active || Mirror.NetworkServer.active) return;
@@ -56,6 +64,7 @@ public class LocalPlayerSettings : MonoBehaviour
         PlayerPrefs.Save();
     }
 
+    // очищаем общую ссылку только при уничтожении основного экземпляра настроек.
     private void OnDestroy()
     {
         if (Instance == this) Instance = null;

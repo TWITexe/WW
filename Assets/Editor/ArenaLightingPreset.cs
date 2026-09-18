@@ -8,10 +8,12 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
+// сохраняет настройки освещения арены, постобработки и материалов в проект.
 public static class ArenaLightingPreset
 {
     const string Folder = "Assets/Settings/ArenaLighting";
     static readonly HashSet<string> changed = new HashSet<string>();
+    // открываем арену, настраиваем солнце, небо и эффекты, затем сохраняем сцену и изменённые ассеты.
     [MenuItem("Wizard/Lighting/Apply arena lighting to saved arena")]
     public static void Apply()
     {
@@ -51,6 +53,7 @@ public static class ArenaLightingPreset
         RenderSettings.skybox = sky; Mark(sky);
 
         string profilePath = Folder + "/ArenaLook.asset";
+        // профиль хранится отдельным ассетом, чтобы настройки постобработки можно было редактировать в инспекторе.
         var profile = AssetDatabase.LoadAssetAtPath<VolumeProfile>(profilePath);
         if (profile == null) { profile = ScriptableObject.CreateInstance<VolumeProfile>(); AssetDatabase.CreateAsset(profile, profilePath); }
         var bloom = Component<Bloom>(profile);
@@ -69,6 +72,7 @@ public static class ArenaLightingPreset
             Glow(AssetDatabase.LoadAssetAtPath<Material>("Assets/GeneratedWizard/" + name + "Particles.mat"), 2f);
         }
         const string fireballPath = "Assets/Prefabs/FireBall.prefab";
+        // создаём локальные копии материалов фаерболла, сохраняя исходные материалы импортированных ресурсов.
         var fireball = PrefabUtility.LoadPrefabContents(fireballPath);
         try
         {
@@ -99,12 +103,15 @@ public static class ArenaLightingPreset
         File.WriteAllLines("Logs/arena-lighting-files.txt", changed.OrderBy(p => p));
         Debug.Log("ARENA_LIGHTING_APPLIED_AND_VALIDATED: " + changed.Count + " assets; HDR bloom, sun, sky and materials");
     }
+    // получаем эффект из профиля постобработки или добавляем его как вложенный ассет.
     static T Component<T>(VolumeProfile profile) where T : VolumeComponent
     {
         if (profile.TryGet<T>(out var component)) return component;
         component = profile.Add<T>(true); AssetDatabase.AddObjectToAsset(component, profile); return component;
     }
+    // отмечаем ассет изменённым и записываем его путь для итогового отчёта.
     static void Mark(UnityEngine.Object asset) { EditorUtility.SetDirty(asset); changed.Add(AssetDatabase.GetAssetPath(asset)); }
+    // сохраняем оттенок материала, нормируя яркость свечения к заданному уровню.
     static void Glow(Material material, float strength)
     {
         if (material == null || !AssetDatabase.GetAssetPath(material).StartsWith("Assets/") || !material.HasProperty("_BaseColor")) return;
@@ -116,6 +123,7 @@ public static class ArenaLightingPreset
         else material.SetColor("_BaseColor", hdr);
         Mark(material);
     }
+    // задаём металлический блеск и гладкость выбранного материала мага.
     static void Polish(string name, float metal, float smooth)
     {
         var material = AssetDatabase.LoadAssetAtPath<Material>("Assets/GeneratedWizard/" + name + ".mat");

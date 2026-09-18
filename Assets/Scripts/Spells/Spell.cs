@@ -1,8 +1,11 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+// базовый ассет заклинания: описание, рецепт, перезарядка и точка входа для серверного применения.
 public abstract class Spell : ScriptableObject
 {
+    // выбираем оформление попадания отдельно от механики и рецепта.
+    public SpellHitKind hitEffect;
     [SerializeField] private string displayName;
     [SerializeField, TextArea] private string description;
     public string Description => description;
@@ -11,6 +14,7 @@ public abstract class Spell : ScriptableObject
     public float Cooldown => Mathf.Max(0.1f, cooldown);
     public string Name => string.IsNullOrWhiteSpace(displayName) ? name : displayName;
     public IReadOnlyList<MagicElement> Recipe => recipe;
+    // рецепт доступен, только если набор корректен и содержит каждую требуемую стихию.
     public bool IsAvailable(ElementLoadout loadout)
     {
         if (!loadout.IsValid || recipe == null || recipe.Length != 3) return false;
@@ -18,18 +22,14 @@ public abstract class Spell : ScriptableObject
             if (!loadout.Contains(element)) return false;
         return true;
     }
-    // Order-independent recipes, preserving the number of each element.
+    // сравниваем стихии по позициям: перестановка нажатий меняет рецепт.
     public bool MatchesCombo(IReadOnlyList<MagicElement> input)
     {
-        if (recipe == null || recipe.Length != 3 || input.Count != recipe.Length) return false;
-        foreach (MagicElement element in recipe)
-        {
-            int expected = 0, actual = 0;
-            foreach (MagicElement value in recipe) if (value == element) expected++;
-            for (int i = 0; i < input.Count; i++) if (input[i] == element) actual++;
-            if (expected != actual) return false;
-        }
+        if (recipe == null || recipe.Length != 3 || input == null || input.Count != recipe.Length) return false;
+        for (int i = 0; i < recipe.Length; i++)
+            if (input[i] != recipe[i]) return false;
         return true;
     }
+    // наследники создают серверный эффект и возвращают успех, от которого зависит запуск перезарядки.
     public abstract bool ActivateServer(PlayerNetworkCaster caster, Vector3 direction);
 }

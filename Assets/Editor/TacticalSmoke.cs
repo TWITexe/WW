@@ -9,28 +9,37 @@ using UnityEngine;
 using UnityEngine.UI;
 using Object=UnityEngine.Object;
 
+// поэтапно проверяет тактические заклинания на локальном хосте и завершает процесс редактора по результату.
 [InitializeOnLoad]
 public static class TacticalSmoke
 {
     const string Flag="TacticalSmoke";
     const BindingFlags Private=BindingFlags.Instance|BindingFlags.NonPublic;
     static double started,next;static int stage,checks;static Health player,enemy;static RelativeMovement movement;static TacticalEffect seal;static Vector3 arena=new Vector3(200,40,200);
+    // подключаем сценарий проверки к обновлению редактора.
     static TacticalSmoke(){EditorApplication.update+=Tick;}
+    // прерываем сценарий при первом нарушении ожидаемого поведения.
     static void Check(bool value,string message){if(!value)throw new Exception(message);checks++;}
+    // читаем закрытое поле через отражение только для целей проверки.
     static object Field(object obj,string name)=>obj.GetType().GetField(name,Private).GetValue(obj);
+    // задаём закрытое поле тестируемого компонента без добавления игрового публичного метода.
     static void Set(object obj,string name,object value)=>obj.GetType().GetField(name,Private).SetValue(obj,value);
+    // загружаем ассет тактического заклинания по его имени файла.
     static TacticalSpell Spell(string id)=>AssetDatabase.LoadAssetAtPath<TacticalSpell>("Assets/TacticalSpells/"+id+".asset");
+    // создаём серверный эффект с заданным владельцем и публикуем его через Mirror.
     static TacticalEffect Spawn(string id,uint owner,Vector3 pos){var go=Object.Instantiate(Spell(id).effectPrefab,pos,Quaternion.identity);var effect=go.GetComponent<TacticalEffect>();effect.ownerId=owner;NetworkServer.Spawn(go);return effect;}
+    // подготавливаем тестовую сцену и включаем сценарий тактических проверок.
     public static void Run()
     {
         var catalog=AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Player.prefab").GetComponentInChildren<SpellManager>(true);
-        Check(catalog.Spells.Count==20,"20 spells");Check(catalog.Spells.Select(s=>string.Join(",",s.Recipe.OrderBy(e=>e))).Distinct().Count()==20,"Unique recipes");
+        Check(catalog.Spells.Count==21,"21 spells including smoke cloud");Check(catalog.Spells.Select(s=>string.Join(",",s.Recipe)).Distinct().Count()==catalog.Spells.Count,"Unique recipes");
         foreach(var id in TacticalSpellBuilder.Ids){var s=Spell(id);Check(s!=null&&s.effectPrefab.GetComponent<NetworkIdentity>().assetId!=0,"Network prefab "+id);}
         var hud=AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/UI/MatchUI.prefab").GetComponent<PlayerGameUI>();
         var data=new SerializedObject(hud);Check(data.FindProperty("cards").arraySize==20,"Saved HUD cards");Check(data.FindProperty("healthFill").objectReferenceValue!=null,"Saved health fill");
         Check(InputComboTracker.InputTimeout==2,"Timeout two seconds");
         EditorSceneManager.OpenScene("Assets/Scenes/Menu.unity");SessionState.SetBool(Flag,true);EditorApplication.isPlaying=true;
     }
+    // проверяем рывок, зеркало, стену, печать, притяжение и двойника с ожиданием между этапами.
     static void Tick()
     {
         if(!SessionState.GetBool(Flag,false)||!EditorApplication.isPlaying||EditorApplication.isCompiling)return;
@@ -58,7 +67,7 @@ public static class TacticalSmoke
                     Check(enemy!=null,"Enemy still exists");Check(fire!=null||wind!=null||elemental!=null,"Projectile component: "+path);if(fire!=null)fire.ownerId=enemy.netId;else if(wind!=null)wind.ownerId=enemy.netId;else elemental.ownerId=enemy.netId;
                     shot.GetComponent<Rigidbody>().linearVelocity=Vector3.back*10;NetworkServer.Spawn(shot);
                     Check(!mirror.CanBeHit(player.netId)&&mirror.CanBeHit(enemy.netId),"Mirror ignores owner");
-                    if(elemental!=null)typeof(ElementalEffect).GetMethod("Impact",Private).Invoke(elemental,new object[]{mirror.GetComponent<Collider>()});else shot.SendMessage("OnTriggerEnter",mirror.GetComponent<Collider>());
+                    if(elemental!=null)typeof(ElementalEffect).GetMethod("Impact",Private).Invoke(elemental,new object[]{mirror.GetComponent<Collider>(),shot.transform.position});else shot.SendMessage("OnTriggerEnter",mirror.GetComponent<Collider>());
                     uint owner=fire!=null?fire.ownerId:wind!=null?wind.ownerId:elemental.ownerId;Check(owner==player.netId,"Reflected ownership "+path);Check(shot.GetComponent<Rigidbody>().linearVelocity.z>0,"Reflected direction");NetworkServer.Destroy(shot);
                 }
                 var appearance=player.GetComponent<WizardAppearance>();appearance.Tint(Color.magenta);

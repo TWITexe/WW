@@ -5,11 +5,13 @@ using Mirror.Discovery;
 using UnityEngine;
 using UnityEngine.Events;
 
+// пустой запрос поиска: дл€ получени€ объ€влени€ комнаты дополнительные данные не требуютс€.
 [Serializable]
 public class RoomDiscoveryRequest : NetworkMessage
 {
 }
 
+// содержит сетевое объ€вление комнаты и локально добавленный адрес отправител€.
 [Serializable]
 public class RoomDiscoveryResponse : NetworkMessage
 {
@@ -20,15 +22,17 @@ public class RoomDiscoveryResponse : NetworkMessage
     public int players;
     public int maxPlayers;
 
-    // Ёто не отправл€етс€ по сети, мы заполн€ем это уже на клиенте
+    // адрес отправител€ не передаЄтс€ этим полем по сети, а заполн€етс€ на клиенте из ответа транспорта.
     public IPEndPoint EndPoint { get; set; }
 }
 
+// позвол€ет назначать обработчики найденной комнаты через событи€ Unity.
 [Serializable]
 public class RoomFoundUnityEvent : UnityEvent<RoomDiscoveryResponse>
 {
 }
 
+// обмениваетс€ объ€влени€ми комнат через механизм поиска Mirror в локальной сети.
 public class RoomNetworkDiscovery : NetworkDiscoveryBase<RoomDiscoveryRequest, RoomDiscoveryResponse>
 {
     [Header("Room Info")]
@@ -37,11 +41,13 @@ public class RoomNetworkDiscovery : NetworkDiscoveryBase<RoomDiscoveryRequest, R
 
     public RoomFoundUnityEvent OnRoomFound = new RoomFoundUnityEvent();
 
+    // создаЄм запрос без дополнительных полей.
     protected override RoomDiscoveryRequest GetRequest()
     {
         return new RoomDiscoveryRequest();
     }
 
+    // сервер отвечает своим адресом, именем комнаты и текущим числом подключений.
     protected override RoomDiscoveryResponse ProcessRequest(RoomDiscoveryRequest request, IPEndPoint endpoint)
     {
         try
@@ -63,11 +69,12 @@ public class RoomNetworkDiscovery : NetworkDiscoveryBase<RoomDiscoveryRequest, R
         }
     }
 
+    // подставл€ем реальный адрес отправител€ вместо служебного адреса сервера и публикуем результат.
     protected override void ProcessResponse(RoomDiscoveryResponse response, IPEndPoint endpoint)
     {
         response.EndPoint = endpoint;
 
-        // ¬ажно:
+        // важно дл€ подключени€ к найденной комнате:
         // сервер может прислать uri с localhost/0.0.0.0,
         // поэтому подставл€ем реальный IP, с которого пришЄл ответ
         UriBuilder realUri = new UriBuilder(response.uri)
@@ -80,6 +87,7 @@ public class RoomNetworkDiscovery : NetworkDiscoveryBase<RoomDiscoveryRequest, R
         OnRoomFound.Invoke(response);
     }
 
+    // задаЄм им€, которое сервер будет возвращать при поиске комнат.
     public void SetRoomName(string newRoomName)
     {
         roomName = string.IsNullOrWhiteSpace(newRoomName) ? "Local Room" : newRoomName;

@@ -4,9 +4,11 @@ using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 
+// сохраняет размеры и материалы более заметных снарядов и областей заклинаний.
 public static class SpellReadabilityTuning
 {
     static readonly List<string> changed = new List<string>();
+    // обновляем материал частиц, длительность наземных зон и оформление префабов, затем сохраняем ассеты.
     [MenuItem("Wizard/VFX/Apply clearer spell visuals")]
     public static void Apply()
     {
@@ -24,7 +26,7 @@ public static class SpellReadabilityTuning
             if (spell.effectPrefab == null) continue;
             if (spell.mode == ElementalCastMode.GroundZone)
             {
-                // Explicit values make the tuning safe to run again.
+                // задаём абсолютные значения, чтобы повторный запуск не накапливал изменения.
                 spell.duration = spell.name == "Blizzard" ? 7.5f : spell.name == "Mud" ? 7.5f : spell.name == "Geyser" ? 3.5f : 6.5f;
                 EditorUtility.SetDirty(spell); changed.Add(AssetDatabase.GetAssetPath(spell));
             }
@@ -35,6 +37,7 @@ public static class SpellReadabilityTuning
         File.WriteAllLines("Logs/spell-readability-files.txt", changed);
         Debug.Log("SPELL_READABILITY_APPLIED: " + changed.Count + " assets");
     }
+    // настраиваем графику выбранного префаба без изменения его коллайдера и сохраняем результат.
     static void Tune(string path, ElementalSpell spell, Material particles, Color tint)
     {
         var root = PrefabUtility.LoadPrefabContents(path);

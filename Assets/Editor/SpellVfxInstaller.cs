@@ -6,10 +6,12 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.VFX;
 
+// подключает импортированные графические эффекты к существующим префабам заклинаний.
 public static class SpellVfxInstaller
 {
     const string Area = "Assets/TwoUncleVFX/_Effect/_Prefab/_AOE/ChiSpiral.prefab";
     static readonly List<string> changed = new List<string>();
+    // устанавливаем варианты эффектов и ресурсы вспышек, сохраняя список изменённых ассетов.
     [MenuItem("Wizard/VFX/Install imported spell effects")]
     public static void Apply()
     {
@@ -69,6 +71,7 @@ public static class SpellVfxInstaller
         Directory.CreateDirectory("Logs"); File.WriteAllLines("Logs/spell-vfx-files.txt", changed);
         Debug.Log("SPELL_VFX_INSTALL_PASSED: " + checks + " checks; " + changed.Count + " prefabs");
     }
+    // загружаем префаб заклинания, заменяем его визуальную часть и сохраняем изменения.
     static void Install(string path, string variant, Color tint, float size, float radius, bool area)
     {
         var root = PrefabUtility.LoadPrefabContents(path);
@@ -88,6 +91,7 @@ public static class SpellVfxInstaller
         }
         finally { PrefabUtility.UnloadPrefabContents(root); }
     }
+    // создаём дочерний импортированный эффект и настраиваем управляющий компонент SpellVfx.
     static SpellVfx AddVisual(GameObject root, string variant, Color tint, float size, float radius, bool area)
     {
         string source = area ? Area : "Assets/VFX_FireballPack/Prefabs/Fireball_Static/S_Fireball_" + variant + ".prefab";

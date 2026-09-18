@@ -1,6 +1,7 @@
 using Mirror;
 using UnityEngine;
 
+// запрашивает цвет у сервера и применяет синхронизированное значение к модели.
 public class PlayerColor : NetworkBehaviour
 {
     [SerializeField] private Renderer bodyRenderer;
@@ -8,6 +9,7 @@ public class PlayerColor : NetworkBehaviour
     [SyncVar(hook = nameof(OnColorChanged))]
     private PlayerColorId playerColorId = PlayerColorId.None;
 
+    // отправляем серверу цвет, выбранный владельцем персонажа в меню.
     public override void OnStartLocalPlayer()
     {
         base.OnStartLocalPlayer();
@@ -17,6 +19,7 @@ public class PlayerColor : NetworkBehaviour
         CmdRequestColor(requestedColor);
     }
 
+    // освобождаем прежний цвет и резервируем желаемый либо первый свободный.
     [Command]
     private void CmdRequestColor(PlayerColorId requestedColor)
     {
@@ -26,6 +29,7 @@ public class PlayerColor : NetworkBehaviour
         playerColorId = PlayerColorManager.Instance.GetColorOrFree(requestedColor);
     }
 
+    // возвращаем цвет в пул после удаления игрока с сервера.
     public override void OnStopServer()
     {
         base.OnStopServer();
@@ -33,11 +37,13 @@ public class PlayerColor : NetworkBehaviour
         PlayerColorManager.Instance.ReleaseColor(playerColorId);
     }
 
+    // применяем новый цвет после сетевого изменения SyncVar.
     private void OnColorChanged(PlayerColorId oldColor, PlayerColorId newColor)
     {
         ApplyColor(newColor);
     }
 
+    // окрашиваем уже существующего персонажа при его первом появлении на клиенте.
     public override void OnStartClient()
     {
         base.OnStartClient();
@@ -45,6 +51,7 @@ public class PlayerColor : NetworkBehaviour
         ApplyColor(playerColorId);
     }
 
+    // используем окраску частей мага, а при её отсутствии — запасной Renderer.
     private void ApplyColor(PlayerColorId colorId)
     {
         var wizard = GetComponent<WizardAppearance>();

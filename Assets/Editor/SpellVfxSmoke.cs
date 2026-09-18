@@ -5,6 +5,7 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 
+// проверяет запуск графических эффектов в игровом режиме отдельного редактора.
 [InitializeOnLoad]
 public static class SpellVfxSmoke
 {
@@ -13,13 +14,16 @@ public static class SpellVfxSmoke
     static readonly List<SpellVfx> visuals = new List<SpellVfx>();
     static int stage;
     static Camera camera;
+    // регистрируем сценарий в цикле обновления редактора.
     static SpellVfxSmoke() { EditorApplication.update += Tick; }
+    // подготавливаем сцену и разрешаем запуск визуальной проверки через флаг сеанса.
     public static void Run()
     {
         SessionState.SetBool(Flag, true);
         EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
         EditorApplication.isPlaying = true;
     }
+    // ждём запуска эффектов, проверяем их состояние и сохраняем результат перед выходом из редактора.
     static void Tick()
     {
         if (!SessionState.GetBool(Flag, false) || !EditorApplication.isPlaying || EditorApplication.isCompiling) return;

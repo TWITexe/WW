@@ -3,8 +3,10 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
 
+// создаёт сохраняемую полосу здоровья и подключает её к интерфейсу матча.
 public static class HealthBarBuilder
 {
+    // создаём префаб полосы, заменяем прежнее отображение и сохраняем ссылки в PlayerGameUI.
     public static void Apply()
     {
         const string path="Assets/Prefabs/UI/HealthBar.prefab";
@@ -35,5 +37,6 @@ public static class HealthBarBuilder
         finally{PrefabUtility.UnloadPrefabContents(hud);}
         AssetDatabase.SaveAssets();Debug.Log("HEALTH_BAR_BUILT");
     }
+    // устанавливаем тактические заклинания, затем обновляем полосу здоровья.
     public static void InstallAll(){TacticalSpellBuilder.Apply();Apply();}
 }

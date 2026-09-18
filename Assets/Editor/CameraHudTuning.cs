@@ -2,8 +2,10 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
 
+// сохраняет компактные размеры карточек заклинаний вместе с настройками камеры персонажа.
 public static class CameraHudTuning
 {
+    // обновляем префаб персонажа и уменьшаем элементы панели перезарядок в префабе интерфейса.
     public static void Apply()
     {
         GameplayPolishBuilder.Apply();

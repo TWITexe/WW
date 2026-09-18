@@ -3,8 +3,10 @@ using Mirror;
 using UnityEditor;
 using UnityEngine;
 
+// проверяет назначения стихий, распознавание рецептов и сетевые компоненты исходных снарядов.
 public static class SpellSystemValidation
 {
+    // проверяем корректные и ошибочные наборы, перестановки нажатий и ссылки в префабах.
     [MenuItem("Tools/Wizard War/Validate spell system")]
     public static void Run()
     {
@@ -31,9 +33,14 @@ public static class SpellSystemValidation
         var fire = AssetDatabase.LoadAssetAtPath<FireBall>("Assets/Scripts/Spells/FireBall/FireBall.asset");
         var wind = AssetDatabase.LoadAssetAtPath<WindFlow>("Assets/Scripts/Spells/WindFlow/WindFlow.asset");
         check(fire != null && wind != null, "spell assets load");
-        check(fire.IsAvailable(loadout) && wind.IsAvailable(loadout), "default spell availability");
+        check(fire.IsAvailable(loadout) && !wind.IsAvailable(loadout), "wind now requires earth");
         check(loadout.KeysFor(fire.Recipe) == "Q → Q → Q", "default fire keys");
-        check(loadout.KeysFor(wind.Recipe) == "E → E → E", "default wind keys");
+                var dash = AssetDatabase.LoadAssetAtPath<TacticalSpell>("Assets/TacticalSpells/SteamDash.asset");
+        check(dash.MatchesCombo(new[] { MagicElement.Air, MagicElement.Air, MagicElement.Air }), "triple air resolves dash");
+        var earthAir = new ElementLoadout { q = MagicElement.Earth, e = MagicElement.Air, r = MagicElement.Ice };
+        check(wind.MatchesCombo(new[] { MagicElement.Earth, MagicElement.Air, MagicElement.Air }), "ordered earth-air-air resolves wind");
+        check(!wind.MatchesCombo(new[] { MagicElement.Air, MagicElement.Earth, MagicElement.Air }), "wind rejects reordered elements");
+        check(earthAir.KeysFor(wind.Recipe) == "Q → E → E", "new wind keys");
         loadout.Assign(2, MagicElement.Fire);
         check(loadout.KeysFor(fire.Recipe) == "R → R → R", "rebinding changes displayed recipe");
         check(!fire.IsAvailable(invalid), "invalid loadout rejected by catalog");
@@ -41,8 +48,10 @@ public static class SpellSystemValidation
         noFire.Assign(0, MagicElement.Earth);
         check(!fire.IsAvailable(noFire) && wind.IsAvailable(noFire), "catalog filters unavailable elements");
         check(!fire.MatchesCombo(new[] { MagicElement.Fire, MagicElement.Fire }), "partial recipe rejected");
+        check(!fire.MatchesCombo(null), "null input rejected");
+        check(!fire.MatchesCombo(new[] { MagicElement.Fire, MagicElement.Fire, MagicElement.Fire, MagicElement.Fire }), "long input rejected");
 
-        // Exercise all 27 triples against a mixed recipe, including multiplicity.
+        // проверяем все двадцать семь последовательностей: подходит только точный порядок рецепта.
         var mixed = ScriptableObject.CreateInstance<FireBall>();
         try
         {
@@ -57,10 +66,8 @@ public static class SpellSystemValidation
                 for (int b = 0; b < 3; b++)
                     for (int c = 0; c < 3; c++)
                     {
-                        int fires = (a == 0 ? 1 : 0) + (b == 0 ? 1 : 0) + (c == 0 ? 1 : 0);
-                        int airs = (a == 1 ? 1 : 0) + (b == 1 ? 1 : 0) + (c == 1 ? 1 : 0);
                         check(mixed.MatchesCombo(new[] { (MagicElement)a, (MagicElement)b, (MagicElement)c }) ==
-                            (fires == 2 && airs == 1), "order-independent matching " + a + b + c);
+                            (a == 0 && b == 1 && c == 0), "ordered matching " + a + b + c);
                     }
         }
         finally { UnityEngine.Object.DestroyImmediate(mixed); }
@@ -77,6 +84,7 @@ public static class SpellSystemValidation
             check(projectile.GetComponent<NetworkTransformReliable>().syncDirection == SyncDirection.ServerToClient,
                 "server controls projectile transform");
         }
+        System.IO.File.WriteAllText("Logs/spell-system-validation.txt", $"PASS: {checks} checks");
         Debug.Log($"SPELL_VALIDATION_PASSED: {checks} checks");
     }
 }

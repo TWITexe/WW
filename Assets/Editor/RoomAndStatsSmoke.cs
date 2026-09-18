@@ -7,6 +7,7 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 
+// проверяет создание комнаты, её объявление и имя игрока на локальном хосте в отдельном редакторе.
 [InitializeOnLoad]
 public static class RoomAndStatsSmoke
 {
@@ -15,13 +16,17 @@ public static class RoomAndStatsSmoke
     static double started,next;
     static int stage,checks;
     static RoomNetworkDiscovery discovery;
+    // подключаем сценарий к обновлению редактора с управлением через флаг сеанса.
     static RoomAndStatsSmoke(){EditorApplication.update+=Tick;}
+    // подготавливаем визуальные настройки и диалог комнаты перед переходом в игровой режим.
     public static void Run()
     {
         SpellReadabilityTuning.Apply();RoomCreationUIBuilder.Apply();
         SessionState.SetBool(Flag,true);EditorApplication.isPlaying=true;
     }
+    // учитываем выполненное условие или завершаем проверку исключением.
     static void Check(bool value,string message){if(!value)throw new Exception(message);checks++;}
+    // проверяем пустое и допустимое имя комнаты, ответ поиска и отображаемое имя игрока.
     static void Tick()
     {
         if(!SessionState.GetBool(Flag,false)||!EditorApplication.isPlaying||EditorApplication.isCompiling)return;

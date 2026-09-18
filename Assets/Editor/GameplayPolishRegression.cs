@@ -8,6 +8,7 @@ using UnityEngine.UI;
 using Mirror;
 using UnityEngine.EventSystems;
 
+// проверяет движение, ловушки, возрождение и интерфейс на хосте; запускать в отдельном редакторе.
 [InitializeOnLoad]
 public static class GameplayPolishRegression
 {
@@ -22,7 +23,9 @@ public static class GameplayPolishRegression
     static PlayerStats attacker;
     static readonly List<string> errors=new List<string>();
     static BindingFlags Private=BindingFlags.NonPublic|BindingFlags.Instance;
+    // регистрируем обработчик поэтапного сценария редактора.
     static GameplayPolishRegression(){EditorApplication.update+=Tick;}
+    // подготавливаем ассеты и включаем сценарий проверки через флаг сеанса.
     public static void Run()
     {
         GameplayPolishBuilder.Apply();
@@ -30,7 +33,9 @@ public static class GameplayPolishRegression
         WizardExpansionValidation.Run();SpellSystemValidation.Run();
         SessionState.SetBool(Flag,true);EditorSceneManager.OpenScene("Assets/Scenes/Menu.unity");EditorApplication.isPlaying=true;
     }
+    // останавливаем сценарий при первом невыполненном условии.
     static void Check(bool value,string message){if(!value)throw new Exception("Polish regression: "+message);checks++;}
+    // выполняем этапы проверки с ожиданием игровых кадров и завершаем процесс с кодом результата.
     static void Tick()
     {
         if(!SessionState.GetBool(Flag,false)||!EditorApplication.isPlaying||EditorApplication.isCompiling)return;
@@ -89,7 +94,7 @@ public static class GameplayPolishRegression
                 movement.enabled=false;
                 Check(EventSystem.current!=null&&EventSystem.current.currentInputModule!=null,"arena has a live UI input module");
                 Click((Button)typeof(PlayerGameUI).GetField("resumeButton",Private).GetValue(ui));
-                // Headless batch editors cannot lock an OS cursor.
+                // редактор без графического окна не может захватить системный курсор.
                 Check(!PlayerGameUI.InputBlocked&&(Application.isBatchMode||Cursor.lockState==CursorLockMode.Locked),"resume restores input");
                 StandOnArenaTrap("Trap (1)");next=now+1.2;stage=20;
             }
@@ -186,10 +191,12 @@ public static class GameplayPolishRegression
         }
         catch(Exception ex){SessionState.SetBool(Flag,false);Debug.LogException(ex);EditorApplication.Exit(1);}
     }
+    // перемещаем тестового персонажа с временным отключением контроллера и сбросом движения.
     static void Teleport(Vector3 position)
     {
         var controller=caster.GetComponent<CharacterController>();controller.enabled=false;caster.transform.position=position;movement.ResetVerticalVelocity();controller.enabled=true;Physics.SyncTransforms();
     }
+    // размещаем персонажа на указанной ловушке для проверки серверного урона.
     static void StandOnArenaTrap(string name)
     {
         var trap=GameObject.Find(name).GetComponent<Trap>();
@@ -200,6 +207,7 @@ public static class GameplayPolishRegression
         Teleport(new Vector3(probe.x,hit.point.y+feetOffset+.02f,probe.z));health.Heal(1000);baseline=health.CurrentHealth;
         Debug.Log($"ARENA_TRAP {name}: floor={hit.point.y}, triggerTop={bounds.max.y}, player={caster.transform.position}, server={trap.isServer}");
     }
+    // имитируем нажатие на кнопку интерфейса средствами системы событий.
     static void Click(Button button)
     {
         Canvas.ForceUpdateCanvases();
@@ -210,7 +218,9 @@ public static class GameplayPolishRegression
         Check(hits.Count>0&&ExecuteEvents.GetEventHandler<IPointerClickHandler>(hits[0].gameObject)==button.gameObject,"button receives UI raycast: "+button.name);
         ExecuteEvents.Execute(button.gameObject,pointer,ExecuteEvents.pointerClickHandler);
     }
+    // собираем ошибки и исключения Unity, чтобы учитывать их в результате проверки.
     static void OnLog(string text,string stack,LogType type){if(type==LogType.Error||type==LogType.Exception)errors.Add(text);}
+    // сохраняем изображение интерфейса, временно перенастроив холст и камеру.
     static void Capture(Canvas canvas,string file)
     {
         Canvas.ForceUpdateCanvases();

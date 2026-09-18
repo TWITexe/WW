@@ -1,6 +1,7 @@
 using Mirror;
 using UnityEngine;
 
+// поворачивает надпись над чужим игроком к камере и скрывает её у своего персонажа.
 public class BillboardToCamera : MonoBehaviour
 {
     private Camera targetCamera;
@@ -8,6 +9,7 @@ public class BillboardToCamera : MonoBehaviour
     private Canvas overheadCanvas;
     private bool canvasVisibleByDefault;
 
+    // запоминаем владельца надписи и исходную видимость её холста.
     private void Awake()
     {
         owner = GetComponentInParent<NetworkIdentity>();
@@ -15,9 +17,10 @@ public class BillboardToCamera : MonoBehaviour
         canvasVisibleByDefault = overheadCanvas != null && overheadCanvas.enabled;
     }
 
+    // после движения камеры обновляем видимость и разворачиваем надпись к зрителю.
     private void LateUpdate()
     {
-        // Keep data updated for the scoreboard; hide only the overhead canvas.
+        // скрываем только холст над головой, сохраняя данные для таблицы игроков.
         if (overheadCanvas != null)
             overheadCanvas.enabled = canvasVisibleByDefault && (owner == null || !owner.isLocalPlayer);
         if (owner != null && owner.isLocalPlayer) return;

@@ -2,29 +2,34 @@ using Mirror;
 using System.Collections;
 using UnityEngine;
 
+// хранит сетевое здоровье, щит и смерть; урон и возрождение рассчитывает сервер.
 public class Health : NetworkBehaviour
 {
     private static readonly System.Collections.Generic.HashSet<Health> serverInstances = new System.Collections.Generic.HashSet<Health>();
     public static System.Collections.Generic.IReadOnlyCollection<Health> ServerInstances => serverInstances;
-    //private Animator animator;
 
     [SerializeField] private int maxHealth = 100;
 
     [SyncVar(hook = nameof(OnHealthChanged))]
     private int currentHealth;
 
-    // ===================== STATE =====================
+    // состояние персонажа, синхронизируемое сервером.
     // главный флаг смерти (синхронизируется по сети)
     [SyncVar]
     private bool isDead;
 
     public bool IsDead => isDead;
-    [SyncVar] private int shield;
+    [SyncVar(hook = nameof(OnShieldChanged))] private int shield;
     private double shieldUntil;
     private uint lastAttacker;
     private double lastAttackTime;
     public int Shield => shield;
+    public event System.Action<int> ShieldChanged;
 
+    // уведомляем клиентское оформление о появлении и исчезновении синхронизированного щита.
+    private void OnShieldChanged(int previous, int current) => ShieldChanged?.Invoke(current);
+
+    // сервер оставляет больший из текущего и нового щитов и задаёт срок его действия.
     [Server]
     public void GrantShield(int amount, float duration)
     {
@@ -33,6 +38,7 @@ public class Health : NetworkBehaviour
         shieldUntil = NetworkTime.time + duration;
     }
 
+    // сервер снимает оставшийся щит, когда заканчивается его время.
     private void Update()
     {
         if (isServer && shield > 0 && NetworkTime.time >= shieldUntil) shield = 0;
@@ -43,11 +49,13 @@ public class Health : NetworkBehaviour
 
     public event System.Action<int, int> OnHealthChangedEvent;
 
+    // задаём начальное здоровье до запуска сетевых обратных вызовов.
     private void Awake()
     {
         currentHealth = maxHealth;
     }
 
+    // регистрируем живую серверную сущность для ловушек и тактических эффектов.
     public override void OnStartServer()
     {
         base.OnStartServer();
@@ -56,13 +64,15 @@ public class Health : NetworkBehaviour
         currentHealth = maxHealth;
         isDead = false;
     }
+    // удаляем сущность из серверного списка при завершении её сетевой жизни.
     public override void OnStopServer()
     {
         serverInstances.Remove(this);
         base.OnStopServer();
     }
 
-    // ===================== DAMAGE =====================
+    // получение урона и запоминание атакующего.
+    // сначала поглощаем урон щитом, затем уменьшаем здоровье и при необходимости запускаем смерть.
     [Server]
     public void TakeDamage(int damage, uint attackerId = 0, bool headshot = false)
     {
@@ -84,6 +94,7 @@ public class Health : NetworkBehaviour
         }
     }
 
+    // запоминаем последнего противника для зачёта убийства, в том числе после попадания в ловушку.
     [Server]
     public void RecordAttacker(uint attackerId)
     {
@@ -92,11 +103,13 @@ public class Health : NetworkBehaviour
         lastAttackTime = NetworkTime.time;
     }
 
+    // сервер применяет разброс урона и множитель попадания в голову перед списанием здоровья.
     [Server]
     public void TakeSpellDamage(int baseDamage,uint attackerId,bool headshot=false)
     {
         TakeDamage(SpellDamage.Roll(baseDamage,headshot,Random.value),attackerId,headshot);
     }
+    // клиенты показывают число потерянного здоровья; над своим персонажем цифру не создаём.
     [ClientRpc]
     private void RpcDamageNumber(int amount,bool headshot,Vector3 position)
     {
@@ -106,7 +119,8 @@ public class Health : NetworkBehaviour
         var number=Instantiate(prefab,position+Vector3.right*Random.Range(-.2f,.2f),Quaternion.identity);
         number.Initialize(amount,headshot);
     }
-    // ===================== HEAL =====================
+    // восстановление здоровья живого персонажа.
+    // восстанавливаем здоровье живому персонажу, не превышая его максимум.
     [Server]
     public void Heal(int amount)
     {
@@ -119,7 +133,8 @@ public class Health : NetworkBehaviour
             currentHealth = maxHealth;
     }
 
-    // ===================== DEATH =====================
+    // обработка смерти и статистики.
+    // один раз отмечаем смерть и засчитываем убийство, если противник воздействовал за последние восемь секунд.
     [Server]
     private void Die()
     {
@@ -127,6 +142,7 @@ public class Health : NetworkBehaviour
             return;
 
         isDead = true;
+        GetComponent<RelativeMovement>()?.ResetVerticalVelocity();
         GetComponent<PlayerStats>()?.AddDeath();
         if (lastAttacker != 0 && NetworkTime.time - lastAttackTime <= 8 &&
             NetworkServer.spawned.TryGetValue(lastAttacker, out var attacker))
@@ -139,7 +155,8 @@ public class Health : NetworkBehaviour
         StartCoroutine(RespawnRoutine());
     }
 
-    // ===================== RESPAWN =====================
+    // отложенное возрождение и перенос обеих копий персонажа.
+    // через три секунды восстанавливаем здоровье и выполняем серверный перенос.
     [Server]
     private IEnumerator RespawnRoutine()
     {
@@ -150,59 +167,17 @@ public class Health : NetworkBehaviour
         currentHealth = maxHealth;
         isDead = false;
 
-        // 1. Телепортируем серверную копию игрока
-        ServerTeleport(spawn.position, spawn.rotation);
-
-        // 2. Телепортируем клиента-владельца
-        // Это важно, потому что именно клиент двигает своего персонажа
-        TargetTeleport(connectionToClient, spawn.position, spawn.rotation);
-    }
-    [Server]
-    private void ServerTeleport(Vector3 position, Quaternion rotation)
-    {
-        CharacterController cc = GetComponent<CharacterController>();
-
-        if (cc != null)
-            cc.enabled = false;
-
-        transform.position = position;
-        transform.rotation = rotation;
-
-        ResetMovementState();
-
-        if (cc != null)
-            cc.enabled = true;
-    }
-
-    [TargetRpc]
-    private void TargetTeleport(NetworkConnectionToClient target, Vector3 position, Quaternion rotation)
-    {
-        CharacterController cc = GetComponent<CharacterController>();
-
-        if (cc != null)
-            cc.enabled = false;
-
-        transform.position = position;
-        transform.rotation = rotation;
-
-        ResetMovementState();
-
-        if (cc != null)
-            cc.enabled = true;
-    }
-
-    private void ResetMovementState()
-    {
-        RelativeMovement movement = GetComponent<RelativeMovement>();
-
-        if (movement != null)
+        // движение отвечает за серверный перенос, сброс предсказания и интерполяции наблюдателей.
+        var movement = GetComponent<RelativeMovement>();
+        if (movement != null) movement.ServerTeleport(spawn.position, spawn.rotation);
+        else
         {
-            movement.ResetVerticalVelocity();
-            movement.ForceGroundReset();
+            transform.SetPositionAndRotation(spawn.position, spawn.rotation);
+            GetComponent<NetworkTransformBase>()?.ServerTeleport(spawn.position, spawn.rotation);
         }
     }
-
-    // ===================== SYNC HEALTH =====================
+    // уведомление интерфейса об изменении сетевого здоровья.
+    // уведомляем подписанный интерфейс после получения нового здоровья через SyncVar.
     private void OnHealthChanged(int oldHealth, int newHealth)
     {
         OnHealthChangedEvent?.Invoke(newHealth, maxHealth);

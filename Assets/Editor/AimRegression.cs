@@ -6,6 +6,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using Mirror;
 
+// поэтапная проверка прицеливания на локальном хосте; предназначена для отдельного пакетного запуска редактора.
 [InitializeOnLoad]
 public static class AimRegression
 {
@@ -18,9 +19,13 @@ public static class AimRegression
     static Health closeTarget;
     static Vector3 groundPoint;
     static readonly BindingFlags Fields=BindingFlags.Instance|BindingFlags.NonPublic;
+    // подключаем шаг проверки к обновлению редактора; выполнение разрешается отдельным флагом сеанса.
     static AimRegression(){EditorApplication.update+=Tick;}
+    // применяем настройки персонажа, открываем меню и запускаем игровой режим для проверки.
     public static void Run(){GameplayPolishBuilder.Apply();SessionState.SetBool(Flag,true);EditorSceneManager.OpenScene("Assets/Scenes/Menu.unity");EditorApplication.isPlaying=true;}
+    // прерываем сценарий при нарушении условия и считаем успешно выполненные проверки.
     static void Check(bool value,string message){if(!value)throw new Exception("Aim regression: "+message);checks++;}
+    // последовательно проверяем направление снарядов, близкие цели и наземный каст с ожиданием между этапами.
     static void Tick()
     {
         if(!SessionState.GetBool(Flag,false)||!EditorApplication.isPlaying||EditorApplication.isCompiling)return;
@@ -103,6 +108,8 @@ public static class AimRegression
         }
         catch(Exception e){SessionState.SetBool(Flag,false);Debug.LogException(e);EditorApplication.Exit(1);}
     }
+    // отправляем три нажатия для рецепта пара в наборе, выбранном тестом.
     static void CastSteam(){caster.SubmitElement(0);caster.SubmitElement(0);caster.SubmitElement(1);}
+    // создаём простое препятствие нужного размера для проверки прицела и перекрытия цели.
     static GameObject Cube(string name,Vector3 position,Vector3 scale){var go=GameObject.CreatePrimitive(PrimitiveType.Cube);go.name=name;go.transform.position=position;go.transform.localScale=scale;return go;}
 }

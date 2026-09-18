@@ -6,8 +6,10 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.UI;
 
+// добавляет сохраняемый диалог создания комнаты в сцену меню.
 public static class RoomCreationUIBuilder
 {
+    // создаём диалог и ссылки обработчиков; при уже существующем окне прерываем установку, сохраняя ручные правки.
     public static void Apply()
     {
         var scene=EditorSceneManager.OpenScene("Assets/Scenes/Menu.unity");
@@ -34,10 +36,13 @@ public static class RoomCreationUIBuilder
         foreach(var t in root.GetComponentsInChildren<Transform>(true))t.gameObject.layer=5;
         root.SetActive(false);EditorSceneManager.SaveScene(scene);AssetDatabase.SaveAssets();Debug.Log("ROOM_CREATION_UI_SAVED");
     }
+    // создаём прямоугольный фон с привязкой к центру родителя.
     static RectTransform Box(Transform parent,string name,Vector2 pos,Vector2 size,Color color)
     {var go=new GameObject(name,typeof(RectTransform),typeof(Image));var rect=go.GetComponent<RectTransform>();rect.SetParent(parent,false);rect.anchorMin=rect.anchorMax=new Vector2(.5f,.5f);rect.sizeDelta=size;rect.anchoredPosition=pos;go.GetComponent<Image>().color=color;return rect;}
+    // создаём подпись TextMeshPro с заданным размером, шрифтом и выравниванием.
     static TextMeshProUGUI Label(Transform parent,string name,string value,Vector2 pos,Vector2 size,float fontSize)
     {var go=new GameObject(name,typeof(RectTransform),typeof(TextMeshProUGUI));var text=go.GetComponent<TextMeshProUGUI>();text.rectTransform.SetParent(parent,false);text.rectTransform.sizeDelta=size;text.rectTransform.anchoredPosition=pos;text.text=value;text.font=TMP_Settings.defaultFontAsset;text.fontSize=fontSize;text.alignment=TextAlignmentOptions.Center;text.raycastTarget=false;return text;}
+    // создаём кнопку на цветной подложке с подписью по центру.
     static Button Button(Transform parent,string name,string caption,Vector2 pos)
     {var rect=Box(parent,name,pos,new Vector2(240,55),new Color(.2f,.3f,.5f,1));var button=rect.gameObject.AddComponent<Button>();button.targetGraphic=rect.GetComponent<Image>();Label(rect,"Label",caption,Vector2.zero,new Vector2(225,48),24);return button;}
 }

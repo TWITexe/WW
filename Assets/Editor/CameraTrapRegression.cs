@@ -5,6 +5,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using Mirror;
 
+// проверяет камеру и прохождение ловушек на локальном хосте; в конце завершает процесс редактора.
 [InitializeOnLoad]
 public static class CameraTrapRegression
 {
@@ -17,8 +18,11 @@ public static class CameraTrapRegression
     static int baseline;
     static bool walking;
     static readonly BindingFlags Fields=BindingFlags.Instance|BindingFlags.NonPublic;
+    // подключаем поэтапную проверку к обновлению редактора.
     static CameraTrapRegression(){EditorApplication.update+=Tick;}
+    // применяем настройки камеры и интерфейса, открываем меню и включаем проверку в игровом режиме.
     public static void Run(){CameraHudTuning.Apply();SessionState.SetBool(Flag,true);EditorSceneManager.OpenScene("Assets/Scenes/Menu.unity");EditorApplication.isPlaying=true;}
+    // ведём персонажа через ловушки, проверяем здоровье и отображение камеры с ожиданием физических кадров.
     static void Tick()
     {
         if(!SessionState.GetBool(Flag,false)||!EditorApplication.isPlaying||EditorApplication.isCompiling)return;
@@ -61,16 +65,19 @@ public static class CameraTrapRegression
                 if(health.CurrentHealth!=baseline)throw new Exception("Trap damage continued after walking away");
                 var camera=movement.transform.root.GetComponentInChildren<OrbitCamera>().GetComponent<Camera>();
                 var frame=camera.WorldToViewportPoint(movement.transform.position+Vector3.up*.5f);
+                
                 if(frame.x<.15f||frame.x>.45f)throw new Exception("Player must be left of the reticle: "+frame);
+                
                 if(Vector3.Distance(camera.transform.position,movement.transform.position)<6)throw new Exception("Camera too close in open space");
                 var ui=UnityEngine.Object.FindFirstObjectByType<PlayerGameUI>();
+                
                 foreach(var icon in ui.GetComponentsInChildren<SpellIconGraphic>())
                     if(Mathf.Abs(icon.rectTransform.rect.width-64f/3)>.01f)throw new Exception("Cooldown icon was not reduced 3x");
                 Capture(camera,ui.GetComponentInChildren<Canvas>());
                 trap=GameObject.Find("Trap (1)").GetComponent<Trap>();var bounds=trap.GetComponent<BoxCollider>().bounds;
                 movement.GetComponent<CharacterController>().enabled=false;
                 movement.transform.position=new Vector3(bounds.center.x,1.08f,bounds.center.z);health.Heal(1000);baseline=health.CurrentHealth;
-                // Rendering can block the editor; start the physics wait afterwards.
+                // рендер снимка может задержать редактор, поэтому ожидание физических кадров начинаем после него.
                 stage=5;next=EditorApplication.timeSinceStartup+1.2;
             }
             else if(stage==5)
@@ -87,16 +94,19 @@ public static class CameraTrapRegression
         }
         catch(Exception e){SessionState.SetBool(Flag,false);Debug.LogException(e);EditorApplication.Exit(1);}
     }
+    // временно направляем вывод камеры и интерфейса в текстуру для сохранения проверочного снимка.
     static void Capture(Camera camera,Canvas canvas)
     {
         var render=new RenderTexture(1280,720,24);camera.targetTexture=render;
         canvas.renderMode=RenderMode.ScreenSpaceCamera;canvas.worldCamera=camera;canvas.planeDistance=1;Canvas.ForceUpdateCanvases();camera.Render();
+        
         var old=RenderTexture.active;RenderTexture.active=render;var texture=new Texture2D(1280,720,TextureFormat.RGB24,false);
         texture.ReadPixels(new Rect(0,0,1280,720),0,0);texture.Apply();System.IO.Directory.CreateDirectory("Logs/GameplayPolish");
         System.IO.File.WriteAllBytes("Logs/GameplayPolish/shooter-camera.png",texture.EncodeToPNG());
         RenderTexture.active=old;camera.targetTexture=null;canvas.renderMode=RenderMode.ScreenSpaceOverlay;canvas.worldCamera=null;
         UnityEngine.Object.Destroy(texture);UnityEngine.Object.Destroy(render);
     }
+    // находим именованную ловушку и подготавливаем персонажа к проходу через неё.
     static void BeginWalk(string name)
     {
         trap=GameObject.Find(name).GetComponent<Trap>();var bounds=trap.GetComponent<BoxCollider>().bounds;

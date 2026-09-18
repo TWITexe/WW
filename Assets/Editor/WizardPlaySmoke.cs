@@ -6,6 +6,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using Mirror;
 
+// проверяет базовый бой, щит, смерть и возрождение на хосте; предназначен для отдельного пакетного запуска.
 [InitializeOnLoad]
 public static class WizardPlaySmoke
 {
@@ -16,7 +17,9 @@ public static class WizardPlaySmoke
     private static Health health;
     private static int checks;
     private static readonly List<string> errors=new List<string>();
+    // регистрируем шаг сценария в обновлении редактора.
     static WizardPlaySmoke() { EditorApplication.update+=Tick; }
+    // включаем сценарий и запускаем меню в игровом режиме.
     public static void Run()
     {
         WizardExpansionValidation.FinalizeAndValidate();
@@ -24,11 +27,13 @@ public static class WizardPlaySmoke
         EditorSceneManager.OpenScene("Assets/Scenes/Menu.unity");
         EditorApplication.isPlaying=true;
     }
+    // считаем успешные условия и останавливаем сценарий при ошибке.
     static void Check(bool value,string message)
     {
         if(!value)throw new Exception("Smoke: "+message);
         checks++;
     }
+    // выполняем этапы сетевого каста и жизненного цикла игрока с ожиданием игровых событий.
     static void Tick()
     {
         if(!SessionState.GetBool(Flag,false)||!EditorApplication.isPlaying||EditorApplication.isCompiling)return;
@@ -129,10 +134,12 @@ public static class WizardPlaySmoke
             Debug.LogException(ex);EditorApplication.Exit(1);
         }
     }
+    // собираем ошибки и исключения, возникающие во время сценария.
     static void OnLog(string message,string stack,LogType type)
     {
         if(type==LogType.Error||type==LogType.Exception)errors.Add(message);
     }
+    // сохраняем снимок книги заклинаний для проверки расположения интерфейса.
     static void CaptureMenu()
     {
         var canvas=LocalPlayerSettings.Instance.GetComponentInChildren<Canvas>();
@@ -152,6 +159,7 @@ public static class WizardPlaySmoke
         camera.targetTexture=null;
         UnityEngine.Object.Destroy(texture);UnityEngine.Object.Destroy(render);UnityEngine.Object.Destroy(camera.gameObject);
     }
+    // сохраняем изображение мага из игровой камеры для визуальной проверки.
     static void CaptureWizard()
     {
         var root=caster.GetComponent<WizardAppearance>().visualRoot;

@@ -1,7 +1,9 @@
 using UnityEditor;
 using UnityEngine;
+// выводит структуру импортированной модели мага для настройки частей и размеров.
 public static class WizardModelInspection
 {
+    // перечисляем трансформации и параметры мешей модели в журнал редактора.
     public static void Run()
     {
         var model = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Models/Wizard/LowPoly_Wizard_White_Faceless.fbx");

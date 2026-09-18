@@ -313,6 +313,7 @@ GameObject:
   - component: {fileID: 6278324403761137396}
   - component: {fileID: 8829784080209185798}
   - component: {fileID: 781485895591401484}
+  - component: {fileID: 1548346562795407607}
   m_Layer: 0
   m_Name: Entity
   m_TagString: Untagged
@@ -452,10 +453,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 2420132516201880816}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8ff3ba0becae47b8b9381191598957c8, type: 3}
+  m_Script: {fileID: 11500000, guid: 26e22b863d07caa4c8c50d073e80357e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  syncDirection: 1
+  syncDirection: 0
   syncMode: 0
   syncInterval: 0
   target: {fileID: 1311577087476020490}
@@ -546,6 +547,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   spells:
+  - {fileID: 11400000, guid: 823db45007ce49a590e7563f5bb46eca, type: 2}
   - {fileID: 11400000, guid: f88be7f574b40194ebfb500e051744b6, type: 2}
   - {fileID: 11400000, guid: 7c65af7bf31daee4194a115cc93eee96, type: 2}
   - {fileID: 11400000, guid: 9bfcde8c3f04a9b4e83b7e2aa71ec7c6, type: 2}
@@ -640,6 +642,24 @@ MonoBehaviour:
   syncDirection: 0
   syncMode: 0
   syncInterval: 0
+--- !u!114 &1548346562795407607
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2420132516201880816}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: be70647c1e43b504ab97fa1d65935244, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  syncDirection: 0
+  syncMode: 0
+  syncInterval: 0
+  health: {fileID: 3501180896826027828}
+  definition: {fileID: 11400000, guid: 8df42ff8a2ea4c04e9b611d9201e6c1d, type: 2}
+  localPosition: {x: 0, y: -1, z: 0}
 --- !u!1 &2653887333873340078
 GameObject:
   m_ObjectHideFlags: 0

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+// резервирует уникальные цвета игроков и переводит их идентификаторы в цвета Unity.
 public class PlayerColorManager : MonoBehaviour
 {
     public static PlayerColorManager Instance { get; private set; }
@@ -21,11 +22,13 @@ public class PlayerColorManager : MonoBehaviour
 
     private readonly HashSet<PlayerColorId> usedColors = new();
 
+    // публикуем менеджер цветов текущей сцены.
     private void Awake()
     {
         Instance = this;
     }
 
+    // пытаемся занять желаемый цвет, иначе выбираем первый свободный.
     public PlayerColorId GetColorOrFree(PlayerColorId requestedColor)
     {
         if (TryReserveColor(requestedColor))
@@ -34,6 +37,7 @@ public class PlayerColorManager : MonoBehaviour
         return GetFreeColor();
     }
 
+    // резервируем первый незанятый цвет; при исчерпании палитры возвращаем None.
     public PlayerColorId GetFreeColor()
     {
         foreach (PlayerColorId colorId in availableColors)
@@ -49,6 +53,7 @@ public class PlayerColorManager : MonoBehaviour
         return PlayerColorId.None;
     }
 
+    // отклоняем неизвестный или занятый цвет, затем отмечаем допустимый как использованный.
     public bool TryReserveColor(PlayerColorId colorId)
     {
         if (colorId == PlayerColorId.None)
@@ -64,6 +69,7 @@ public class PlayerColorManager : MonoBehaviour
         return true;
     }
 
+    // освобождаем цвет отключившегося или сменившего оформление игрока.
     public void ReleaseColor(PlayerColorId colorId)
     {
         if (colorId == PlayerColorId.None)
@@ -72,6 +78,7 @@ public class PlayerColorManager : MonoBehaviour
         usedColors.Remove(colorId);
     }
 
+    // переводим сетевой идентификатор в отображаемый цвет.
     public Color GetUnityColor(PlayerColorId colorId)
     {
         return colorId switch

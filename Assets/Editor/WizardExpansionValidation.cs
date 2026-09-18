@@ -5,8 +5,10 @@ using UnityEditor;
 using UnityEngine;
 using Mirror;
 
+// проверяет исходное расширение на четырнадцать заклинаний; это ожидание не учитывает поздние тактические дополнения.
 public static class WizardExpansionValidation
 {
+    // проверяем рецепты, допустимые наборы, сетевые идентификаторы и части модели исходного расширения.
     [MenuItem("Tools/Wizard War/Validate wizard expansion")]
     public static void Run()
     {
@@ -20,10 +22,12 @@ public static class WizardExpansionValidation
         foreach(var spell in manager.Spells)
         {
             check(spell!=null && spell.Recipe.Count==3,"Valid recipe");
-            check(recipes.Add(string.Join(",",spell.Recipe.OrderBy(x=>x))),"Duplicate recipe: "+spell.Name);
+            check(recipes.Add(string.Join(",",spell.Recipe)),"Duplicate recipe: "+spell.Name);
             check(!string.IsNullOrWhiteSpace(spell.Description),"Description: "+spell.Name);
             var recipe=spell.Recipe;
-            check(spell.MatchesCombo(new[]{recipe[2],recipe[0],recipe[1]}),"Permutation: "+spell.Name);
+            check(spell.MatchesCombo(recipe),"Exact sequence: "+spell.Name);
+            check(spell.MatchesCombo(new[]{recipe[2],recipe[0],recipe[1]}) ==
+                (recipe[0]==recipe[1] && recipe[1]==recipe[2]),"Ordered permutation: "+spell.Name);
             if(spell is ElementalSpell elemental && elemental.mode!=ElementalCastMode.Shield)
             {
                 check(elemental.effectPrefab!=null,"Effect prefab");
@@ -51,6 +55,7 @@ public static class WizardExpansionValidation
         check(movement.FindProperty("fallGravityMultiplier").floatValue==1.8f,"Falling acceleration");
         Debug.Log($"EXPANSION_VALIDATION_PASSED: {checks} checks");
     }
+    // создаём временную сцену и сохраняем изображение модели мага для визуальной проверки.
     public static void RenderWizard()
     {
         bool batching=UnityEngine.Rendering.GraphicsSettings.useScriptableRenderPipelineBatching;
@@ -87,6 +92,7 @@ public static class WizardExpansionValidation
         Debug.Log("WIZARD_PREVIEW_SAVED");
         UnityEngine.Rendering.GraphicsSettings.useScriptableRenderPipelineBatching=batching;
     }
+    // заново создаём базовое расширение, проверяем его и при наличии графики сохраняем изображение мага.
     public static void BuildAndValidate()
     {
         WizardExpansionBuilder.Build();
@@ -94,6 +100,7 @@ public static class WizardExpansionValidation
         SpellSystemValidation.Run();
         if(SystemInfo.graphicsDeviceType!=UnityEngine.Rendering.GraphicsDeviceType.Null)RenderWizard();
     }
+    // обновляем сетевые идентификаторы сохранённых префабов и запускаем проверки исходного расширения.
     public static void FinalizeAndValidate()
     {
         WizardExpansionBuilder.FinalizeNetworkPrefabs();

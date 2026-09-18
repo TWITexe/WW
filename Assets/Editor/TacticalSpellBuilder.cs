@@ -10,18 +10,20 @@ using UnityEngine;
 using UnityEngine.UI;
 using Object=UnityEngine.Object;
 
+// создаёт шесть тактических заклинаний, их префабы и карточки в сохранённых интерфейсах.
 public static class TacticalSpellBuilder
 {
     const string Folder="Assets/TacticalSpells";
     public static readonly string[] Ids={"SteamDash","IceMirror","StoneWall","FireSeal","GravityWell","SnowDecoy"};
     static readonly string[] Titles={"Паровой рывок","Ледяное зеркало","Каменная стена","Огненная печать","Гравитационный узел","Снежный двойник"};
     static readonly string[] Texts={"Рывок по направлению движения на 5 м. Оставляет облако пара. Стены останавливают рывок.","Щит перед магом на 3 с. Отражает один вражеский снаряд обратно и разрушается.","Стена высотой 2,7 м на 5 с. Перекрывает проход и снаряды. Только на свободной земле.","Ловушка на 9 с; взводится за 1 с. Враг в радиусе 1,25 м вызывает взрыв: 35 урона в радиусе 3 м.","Узел на 3,5 с притягивает врагов в радиусе 4 м. Не действует через стены и не наносит урон.","Копия мага бежит вперёд 4 с. При попадании замедляет ближайшего врага в радиусе 3 м на 50% на 2 с."};
-    static readonly int[][] Recipes={new[]{0,1,4},new[]{2,2,3},new[]{1,3,3},new[]{0,0,3},new[]{3,4,4},new[]{1,2,4}};
+    static readonly int[][] Recipes={new[]{1,1,1},new[]{2,2,3},new[]{1,3,3},new[]{0,0,3},new[]{3,4,4},new[]{1,2,4}};
     static readonly float[] Durations={2.5f,3,5,9,3.5f,4};
     static readonly float[] Cooldowns={7,12,10,12,12,10};
     static readonly float[] Radii={1,1.1f,0,3,4,3};
     static readonly Color[] Colors={new Color(.8f,.92f,1),new Color(.25f,.8f,1),new Color(.55f,.4f,.22f),new Color(1,.3f,.03f),new Color(.6f,.25f,1),new Color(.55f,.9f,1)};
     static readonly List<string> changed=new List<string>();
+    // записываем стандартные параметры, расширяем каталог игрока и регистрируем сетевые префабы в сценах.
     [MenuItem("Wizard/Spells/Install six tactical spells")]
     public static void Apply()
     {
@@ -44,7 +46,7 @@ public static class TacticalSpellBuilder
             var manager=player.GetComponentInChildren<SpellManager>(true);var data=new SerializedObject(manager);var spells=data.FindProperty("spells");
             foreach(var spell in catalog)AddReference(spells,spell);data.ApplyModifiedPropertiesWithoutUndo();
             var keys=new HashSet<string>();foreach(var spell in manager.Spells)
-            {string key=string.Join(",",spell.Recipe.OrderBy(e=>e));if(!keys.Add(key))throw new Exception("Duplicate spell recipe: "+spell.Name);}
+            {string key=string.Join(",",spell.Recipe);if(!keys.Add(key))throw new Exception("Duplicate spell recipe: "+spell.Name);}
             PrefabUtility.SaveAsPrefabAsset(player,playerPath);changed.Add(playerPath);
         }
         finally{PrefabUtility.UnloadPrefabContents(player);}
@@ -66,14 +68,17 @@ public static class TacticalSpellBuilder
         Directory.CreateDirectory("Logs");File.WriteAllLines("Logs/tactical-files.txt",changed.Distinct());
         Debug.Log("TACTICAL_SPELLS_INSTALLED: six unique recipes, saved UI cards and network prefabs");
     }
+    // добавляем ссылку в сериализованный список только при её отсутствии.
     static void AddReference(SerializedProperty list,Object value)
     {for(int i=0;i<list.arraySize;i++)if(list.GetArrayElementAtIndex(i).objectReferenceValue==value)return;int index=list.arraySize++;list.GetArrayElementAtIndex(index).objectReferenceValue=value;}
+    // создаём или обновляем одноцветный материал тактического эффекта.
     static Material Material(string name,Color color)
     {
         string path=Folder+"/"+name+".mat";var material=AssetDatabase.LoadAssetAtPath<Material>(path);
         if(material==null){material=new Material(Shader.Find("Universal Render Pipeline/Unlit"));AssetDatabase.CreateAsset(material,path);}
         material.SetColor("_BaseColor",color);EditorUtility.SetDirty(material);changed.Add(path);return material;
     }
+    // строим геометрию и коллайдеры выбранной механики, затем сохраняем префаб с устойчивым сетевым идентификатором.
     static GameObject BuildEffect(TacticalSpell spell,string id)
     {
         var root=new GameObject(id);root.AddComponent<NetworkIdentity>();root.AddComponent<NetworkTransformReliable>().syncDirection=SyncDirection.ServerToClient;
@@ -90,7 +95,7 @@ public static class TacticalSpellBuilder
             var box=root.AddComponent<BoxCollider>();box.isTrigger=true;box.size=new Vector3(2.2f,2.5f,.2f);box.center=Vector3.up*.25f;
             for(int i=0;i<2;i++)Mesh(root,"Mirror edge",PrimitiveType.Cube,new Vector3(i==0?-1.05f:1.05f,.25f,0),new Vector3(.1f,2.5f,.1f),accent);
             for(int i=0;i<2;i++)Mesh(root,"Mirror edge",PrimitiveType.Cube,new Vector3(0,i==0?-1:1.5f,0),new Vector3(2.2f,.1f,.1f),accent);
-            // An open, sparkling frame keeps the player's view unobstructed.
+            // оставляем у зеркала открытую искрящуюся рамку, чтобы она не закрывала обзор игроку.
             Particles(root,spell,1,material);
         }
         else if(spell.kind==TacticalKind.SnowDecoy)
@@ -115,10 +120,13 @@ public static class TacticalSpellBuilder
         var prefab=PrefabUtility.SaveAsPrefabAsset(root,path);Object.DestroyImmediate(root);
         var identity=new SerializedObject(prefab.GetComponent<NetworkIdentity>());identity.FindProperty("_assetId").longValue=NetworkIdentity.AssetGuidToUint(new Guid(AssetDatabase.AssetPathToGUID(path)));identity.ApplyModifiedPropertiesWithoutUndo();PrefabUtility.SavePrefabAsset(prefab);changed.Add(path);return prefab;
     }
+    // создаём декоративный примитив без собственного коллайдера.
     static Transform Mesh(GameObject root,string name,PrimitiveType type,Vector3 pos,Vector3 scale,Material material)
     {var go=GameObject.CreatePrimitive(type);go.name=name;Object.DestroyImmediate(go.GetComponent<Collider>());go.transform.SetParent(root.transform,false);go.transform.localPosition=pos;go.transform.localScale=scale;go.GetComponent<Renderer>().sharedMaterial=material;return go.transform;}
+    // рисуем замкнутую границу радиуса в локальных координатах эффекта.
     static LineRenderer Ring(GameObject root,float radius,Material material)
     {var go=new GameObject("Radius",typeof(LineRenderer));go.transform.SetParent(root.transform,false);var line=go.GetComponent<LineRenderer>();line.useWorldSpace=false;line.loop=true;line.widthMultiplier=.07f;line.positionCount=64;line.sharedMaterial=material;for(int i=0;i<64;i++){float a=i*Mathf.PI*2/64;line.SetPosition(i,new Vector3(Mathf.Cos(a)*radius,.035f,Mathf.Sin(a)*radius));}return line;}
+    // добавляем частицы для выбранной механики, включая движение к центру гравитационного узла.
     static void Particles(GameObject root,TacticalSpell spell,float radius,Material unused)
     {
         var go=new GameObject("Particles",typeof(ParticleSystem));go.transform.SetParent(root.transform,false);go.transform.localRotation=Quaternion.Euler(-90,0,0);
@@ -127,13 +135,16 @@ public static class TacticalSpellBuilder
         if(spell.kind==TacticalKind.GravityWell){var velocity=ps.velocityOverLifetime;velocity.enabled=true;velocity.radial=-2;main.startSpeed=0;}
         ps.GetComponent<ParticleSystemRenderer>().sharedMaterial=AssetDatabase.LoadAssetAtPath<Material>("Assets/GeneratedWizard/ReadableSpellParticles.mat");
     }
+    // дополняем обе разновидности интерфейса: книгу заклинаний и панель матча.
     static void AppendCards(GameObject root,List<TacticalSpell> spells)
     {
         foreach(var book in root.GetComponentsInChildren<ElementLoadoutUI>(true))Append(book,"spellCards",true,spells);
         foreach(var hud in root.GetComponentsInChildren<PlayerGameUI>(true))Append(hud,"cards",false,spells);
     }
+    // находим соответствующий компонент в копии карточки по цепочке индексов дочерних объектов.
     static Component Map(Component original,Transform source,Transform destination)
     {if(original==null)return null;var indices=new Stack<int>();var t=original.transform;while(t!=source){indices.Push(t.GetSiblingIndex());t=t.parent;}while(indices.Count>0)destination=destination.GetChild(indices.Pop());return destination.GetComponent(original.GetType());}
+    // клонируем шаблон карточки для отсутствующих заклинаний и переназначаем её внутренние ссылки.
     static void Append(Component ui,string field,bool book,List<TacticalSpell> spells)
     {
         var data=new SerializedObject(ui);var list=data.FindProperty(field);if(list.arraySize==0)throw new Exception("No card template on "+ui.name);
@@ -143,6 +154,7 @@ public static class TacticalSpellBuilder
             var template=list.GetArrayElementAtIndex(0);var sourceSpell=(Spell)template.FindPropertyRelative("spell").objectReferenceValue;
             GameObject source=book?((Image)template.FindPropertyRelative("background").objectReferenceValue).gameObject:(GameObject)template.FindPropertyRelative("root").objectReferenceValue;
             var clone=Object.Instantiate(source,source.transform.parent);clone.name=spell.name;
+            // после клонирования заменяем ссылки карточки на её собственные дочерние объекты.
             foreach(var icon in clone.GetComponentsInChildren<SpellIconGraphic>(true)){icon.spell=spell;icon.color=SpellIconGraphic.Tint(spell);}
             foreach(var text in clone.GetComponentsInChildren<Text>(true))
             {if(text.text==sourceSpell.Name)text.text=spell.Name;else if(text.text==sourceSpell.Description)text.text=spell.Description;else if(text.text==string.Join(" + ",sourceSpell.Recipe.Select(ElementLoadout.Label)))text.text=string.Join(" + ",spell.Recipe.Select(ElementLoadout.Label));}

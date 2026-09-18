@@ -4,8 +4,10 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
 
+// устанавливает редактируемые интерфейсы книги и матча в сцены, если они ещё отсутствуют.
 public static class SceneUIBuilder
 {
+    // создаём недостающие префабы интерфейса, подключаем обработку ввода и сохраняем сцены.
     [MenuItem("Tools/Wizard War/Install editable scene UI")]
     public static void Install()
     {
@@ -43,13 +45,16 @@ public static class SceneUIBuilder
         AssetDatabase.SaveAssets();
         Debug.Log("SCENE_UI_INSTALLED");
     }
+    // получаем каталог из префаба игрока и прекращаем установку, если он пуст.
     static SpellManager Catalog()
     {
         var catalog=AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Player.prefab").GetComponentInChildren<SpellManager>(true);
         if(catalog==null||catalog.Spells.Count==0)throw new System.InvalidOperationException("Player spell catalog is empty");
         return catalog;
     }
+    // назначаем слой интерфейса всей создаваемой иерархии.
     static void SetLayer(GameObject root){foreach(var t in root.GetComponentsInChildren<Transform>(true))t.gameObject.layer=5;}
+    // добавляем систему событий и модуль ввода, только если в сцене ещё нет EventSystem.
     static void EnsureEventSystem()
     {
         if(Object.FindFirstObjectByType<EventSystem>()!=null)return;

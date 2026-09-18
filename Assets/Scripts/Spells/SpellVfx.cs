@@ -2,7 +2,7 @@ using Mirror;
 using UnityEngine;
 using UnityEngine.VFX;
 
-// Cosmetic only: the parent network prefab owns movement, collision and lifetime.
+// настраивает декоративные эффекты; перемещение, попадания и сетевое время жизни остаются у родительского объекта.
 public class SpellVfx : MonoBehaviour
 {
     public VisualEffect effect;
@@ -11,6 +11,7 @@ public class SpellVfx : MonoBehaviour
     [Min(.05f)] public float radius = 1;
     public bool area;
     public bool impact;
+    // пропускаем графику на выделенном сервере и запускаем эффект на клиентах.
     private void Start()
     {
         if (!NetworkClient.active && NetworkServer.active) { if (effect != null) effect.enabled = false; return; }
@@ -18,11 +19,12 @@ public class SpellVfx : MonoBehaviour
         if (effect != null)
         {
             effect.Play();
-            // Imported fireballs emit only one particle/second. A fast projectile
-            // can hit a wall before its first particle; seed its local simulation.
+            // импортированный эффект выпускает частицы редко; быстрый снаряд может
+            // долететь до стены раньше первой частицы, поэтому заранее продвигаем локальную симуляцию.
             if (!area) effect.Simulate(.05f, 30);
         }
     }
+    // задаём только поддерживаемые графом параметры цвета, размера и радиуса.
     public void Configure()
     {
         if (effect == null) return;
@@ -41,32 +43,16 @@ public class SpellVfx : MonoBehaviour
             else if (effect.HasVector3(property)) effect.SetVector3(property, new Vector3(color.r, color.g, color.b) * 2);
         }
     }
-    public static void Burst(Vector3 position, Color color, float radius, float visibleDuration = .5f)
+    // взрыв и попадание используют общий набор одноразовых эффектов пакета.
+    public static void Burst(Vector3 position, Color color, float radius,
+        SpellHitKind kind = SpellHitKind.Holy)
     {
-        if (!NetworkClient.active && NetworkServer.active) return;
-        var prefab = Resources.Load<GameObject>("SpellVfxImpact");
-        if (prefab == null) return;
-        var go = Instantiate(prefab, position, Quaternion.identity);
-        var visual = go.GetComponent<SpellVfx>();
-        visual.tint = color; visual.radius = Mathf.Max(.3f, radius);
-        visual.Configure();
-        visual.Invoke(nameof(StopEmission), visibleDuration);
-        Destroy(go, visibleDuration + 2f);
+        SpellHitLibrary.Play(kind, position, color, radius);
     }
-    private void StopEmission() { if (effect != null) effect.Stop(); }
-    public static void Impact(Vector3 position, Color color, float radius)
+
+    // цвет применяется к магической вспышке, а тип определяет снег, камни или пламя.
+    public static void Impact(Vector3 position, Color color, float radius, SpellHitKind kind = SpellHitKind.Holy)
     {
-        if (!NetworkClient.active && NetworkServer.active) return;
-        var prefab = Resources.Load<GameObject>("SpellProjectileImpact");
-        if (prefab == null) return;
-        var particles = Instantiate(prefab, position, Quaternion.identity).GetComponent<ParticleSystem>();
-        var main = particles.main;
-        main.startColor = new ParticleSystem.MinMaxGradient(color, Color.Lerp(color, Color.white, .6f));
-        float scale = Mathf.Clamp(radius, .6f, 1.5f);
-        main.startSpeed = new ParticleSystem.MinMaxCurve(2f * scale, 5f * scale);
-        particles.Play();
-        particles.Emit(120);
-        Destroy(particles.gameObject, 1.5f);
+        SpellHitLibrary.Play(kind, position, color, radius);
     }
 }
-

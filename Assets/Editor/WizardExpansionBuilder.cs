@@ -6,9 +6,11 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using Mirror;
 
+// создаёт базовое расширение из четырнадцати заклинаний и модель мага; повторный запуск перезаписывает настройки.
 public static class WizardExpansionBuilder
 {
     const string Folder = "Assets/GeneratedWizard";
+    // объединяет стандартные параметры одного генерируемого стихийного заклинания.
     class Spec
     {
         public string id, title, text;
@@ -17,6 +19,7 @@ public static class WizardExpansionBuilder
         public Color color;
         public float cooldown, speed, duration, radius, push, lift, slow;
         public int damage;
+        // заполняем описание генерации из рецепта, режима действия и числовых параметров.
         public Spec(string id, string title, string text, int[] recipe, ElementalCastMode mode, Color color,
             float cooldown, int damage, float radius, float speed = 20, float duration = 4, float push = 0, float lift = 0, float slow = 1)
         { this.id=id; this.title=title; this.text=text; this.recipe=recipe; this.mode=mode; this.color=color;
@@ -38,6 +41,7 @@ public static class WizardExpansionBuilder
         new Spec("StoneSkin","Каменная кожа","Щит поглощает до 50 урона в течение 5 секунд.",new[]{2,3,3},ElementalCastMode.Shield,new Color(.65f,.65f,.7f),12,0,0,0,5),
         new Spec("Geyser","Гейзер","Область на 1 секунду: 10 урона каждые 0,5 с и сильный подброс.",new[]{1,3,4},ElementalCastMode.GroundZone,new Color(.15f,.65f,1),8,10,2,0,1,2,12),
     };
+    // создаём ассеты и префабы стихий, обновляем персонажа и сохраняем их регистрацию в сетевых сценах.
     [MenuItem("Tools/Wizard War/Build wizard expansion assets")]
     public static void Build()
     {
@@ -49,6 +53,7 @@ public static class WizardExpansionBuilder
         SetString(spells[0],"description","Огненный снаряд: 20 урона при прямом попадании.");
         SetString(spells[1],"description","Порыв воздуха отталкивает противника.");
         var prefabs = new List<GameObject>();
+        // значения спецификаций являются исходными настройками: повторная сборка заменит ручной баланс ассетов.
         foreach (Spec spec in Specs)
         {
             string path = Folder + "/" + spec.id + ".asset";
@@ -98,6 +103,7 @@ public static class WizardExpansionBuilder
             EditorUtility.SetDirty(spell); spells.Add(spell);
         }
         BuildPlayer(spells);
+        // сетевые эффекты должны быть зарегистрированы в менеджерах обеих сцен для появления у клиентов.
         foreach(string scenePath in new[]{"Assets/Scenes/Menu.unity","Assets/Scenes/SampleScene.unity"})
         {
             var scene=EditorSceneManager.OpenScene(scenePath);
@@ -112,10 +118,11 @@ public static class WizardExpansionBuilder
         FinalizeNetworkPrefabs();
         Debug.Log("EXPANSION_BUILT: 14 spells, 5 elements, 4 wizard pieces");
     }
+    // сохраняем идентификаторы Mirror, вычисленные из GUID ассетов, для создания объектов в отдельных клиентах.
     public static void FinalizeNetworkPrefabs()
     {
-        // New identities are initially saved before Mirror knows the prefab asset path.
-        // Persist their deterministic IDs explicitly so standalone clients can spawn them.
+        // при первом сохранении Mirror ещё может не знать путь нового префаба.
+        // сохраняем устойчивые идентификаторы явно, чтобы отдельные клиенты могли создать эти объекты.
         foreach(string guid in AssetDatabase.FindAssets("t:Prefab",new[]{Folder}))
         {
             var prefab=AssetDatabase.LoadAssetAtPath<GameObject>(AssetDatabase.GUIDToAssetPath(guid));
@@ -129,6 +136,7 @@ public static class WizardExpansionBuilder
         }
         AssetDatabase.SaveAssets();
     }
+    // выбираем освещаемый материал для мага и неосвещаемый для эффектов, затем задаём цвет.
     static Material Material(string id,Color color)
     {
         string path=Folder+"/"+id+".mat";
@@ -139,6 +147,7 @@ public static class WizardExpansionBuilder
         if(mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness",.15f);
         mat.SetColor("_BaseColor",color); EditorUtility.SetDirty(mat); return mat;
     }
+    // создаём мягкую круглую текстуру и прозрачный материал частиц с заданным оттенком.
     static Material ParticleMaterial(string id, Color color)
     {
         string texturePath=Folder+"/SoftParticle.asset";
@@ -161,10 +170,12 @@ public static class WizardExpansionBuilder
         mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT"); mat.renderQueue=3000;
         EditorUtility.SetDirty(mat); return mat;
     }
+    // записываем закрытое сериализованное строковое поле через редакторский интерфейс Unity.
     static void SetString(UnityEngine.Object obj,string field,string value)
     {
         var so=new SerializedObject(obj); so.FindProperty(field).stringValue=value; so.ApplyModifiedPropertiesWithoutUndo();
     }
+    // заменяем каталог и визуальную модель в префабе игрока, настраивая части мага и ссылки компонентов.
     static void BuildPlayer(List<Spell> spells)
     {
         const string path="Assets/Prefabs/Player.prefab";
@@ -205,7 +216,7 @@ public static class WizardExpansionBuilder
                 {
                     var old=mats[i];
                     Color color=old!=null && old.HasProperty("_Color")?old.color:Color.white;
-                    // Preserve the white robe and dark faceless hood/material accents.
+                    // сохраняем белую мантию, тёмный капюшон без лица и акцентные материалы.
                     mats[i]=Material("Wizard_"+(old!=null?old.name:"White").Replace("/","_"),color);
                 }
                 renderer.sharedMaterials=mats;
