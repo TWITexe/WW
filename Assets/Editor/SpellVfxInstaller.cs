@@ -18,7 +18,7 @@ public static class SpellVfxInstaller
         changed.Clear();
         Install("Assets/Prefabs/FireBall.prefab", "01", new Color(1, .25f, .035f), .65f, 1, false);
         Install("Assets/Prefabs/WindFlow.prefab", "03", new Color(.55f, 1, .85f), .75f, 1, false);
-        foreach (string guid in AssetDatabase.FindAssets("t:ElementalSpell", new[] { "Assets/GeneratedWizard" }))
+        foreach (string guid in AssetDatabase.FindAssets("t:ElementalSpell", new[] { "Assets/Scripts/Spells/Elemental" }))
         {
             var spell = AssetDatabase.LoadAssetAtPath<ElementalSpell>(AssetDatabase.GUIDToAssetPath(guid));
             if (spell.effectPrefab == null) continue;

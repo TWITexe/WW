@@ -15,6 +15,7 @@ GameObject:
   - component: {fileID: 4504266941895214575}
   - component: {fileID: 386622289180825063}
   - component: {fileID: 6631101923603190275}
+  - component: {fileID: 1046453135989449829}
   m_Layer: 0
   m_Name: IceMirror
   m_TagString: Untagged
@@ -35,11 +36,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 1140884176778256622}
-  - {fileID: 414866381479436766}
-  - {fileID: 5105281197862650325}
-  - {fileID: 7317897092082529755}
-  - {fileID: 1563850647280684954}
+  - {fileID: 7278755006413494356}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &8603971712360989214
@@ -55,7 +52,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   sceneId: 0
-  _assetId: 2189775017
+  _assetId: 0
   serverOnly: 0
   visibility: 0
   hasSpawned: 0
@@ -172,6 +169,19 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 2.2, y: 2.5, z: 0.2}
   m_Center: {x: 0, y: 0.25, z: 0}
+--- !u!114 &1046453135989449829
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1480025351211107310}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 39ed3e2771f9d464798803b9d8e4224c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  graphics: {fileID: 7278755006413494356}
 --- !u!1 &1952298897547459490
 GameObject:
   m_ObjectHideFlags: 0
@@ -183,7 +193,7 @@ GameObject:
   - component: {fileID: 414866381479436766}
   - component: {fileID: 417211344778997361}
   - component: {fileID: 8911939059576493153}
-  m_Layer: 0
+  m_Layer: 2
   m_Name: Mirror edge
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -203,7 +213,7 @@ Transform:
   m_LocalScale: {x: 0.1, y: 2.5, z: 0.1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 5036496787099128917}
+  m_Father: {fileID: 7278755006413494356}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!33 &417211344778997361
 MeshFilter:
@@ -258,6 +268,42 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!1 &2358880580132217684
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7278755006413494356}
+  m_Layer: 2
+  m_Name: Mirror graphics
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &7278755006413494356
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2358880580132217684}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 1140884176778256622}
+  - {fileID: 414866381479436766}
+  - {fileID: 5105281197862650325}
+  - {fileID: 7317897092082529755}
+  - {fileID: 1563850647280684954}
+  m_Father: {fileID: 5036496787099128917}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2683723083070172700
 GameObject:
   m_ObjectHideFlags: 0
@@ -269,7 +315,7 @@ GameObject:
   - component: {fileID: 5105281197862650325}
   - component: {fileID: 252858557153002214}
   - component: {fileID: 1695565022008572779}
-  m_Layer: 0
+  m_Layer: 2
   m_Name: Mirror edge
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -289,7 +335,7 @@ Transform:
   m_LocalScale: {x: 2.2, y: 0.1, z: 0.1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 5036496787099128917}
+  m_Father: {fileID: 7278755006413494356}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!33 &252858557153002214
 MeshFilter:
@@ -355,7 +401,7 @@ GameObject:
   - component: {fileID: 1563850647280684954}
   - component: {fileID: 4552746102670896816}
   - component: {fileID: 8090774997311842226}
-  m_Layer: 0
+  m_Layer: 2
   m_Name: Particles
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -375,7 +421,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 5036496787099128917}
+  m_Father: {fileID: 7278755006413494356}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!198 &4552746102670896816
 ParticleSystem:
@@ -5188,7 +5234,7 @@ GameObject:
   - component: {fileID: 1140884176778256622}
   - component: {fileID: 8701039273413941115}
   - component: {fileID: 6493197954920074910}
-  m_Layer: 0
+  m_Layer: 2
   m_Name: Mirror edge
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -5208,7 +5254,7 @@ Transform:
   m_LocalScale: {x: 0.1, y: 2.5, z: 0.1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 5036496787099128917}
+  m_Father: {fileID: 7278755006413494356}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!33 &8701039273413941115
 MeshFilter:
@@ -5274,7 +5320,7 @@ GameObject:
   - component: {fileID: 7317897092082529755}
   - component: {fileID: 1075054222603954656}
   - component: {fileID: 732509645076825751}
-  m_Layer: 0
+  m_Layer: 2
   m_Name: Mirror edge
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -5294,7 +5340,7 @@ Transform:
   m_LocalScale: {x: 2.2, y: 0.1, z: 0.1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 5036496787099128917}
+  m_Father: {fileID: 7278755006413494356}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!33 &1075054222603954656
 MeshFilter:

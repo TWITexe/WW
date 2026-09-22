@@ -3,7 +3,7 @@ using Mirror;
 using UnityEngine;
 
 // принимает нажатия от владельца; сервер выбирает заклинание, проверяет перезарядку и создаёт эффект.
-public class PlayerNetworkCaster : NetworkBehaviour
+public partial class PlayerNetworkCaster : NetworkBehaviour
 {
     [SerializeField] private Camera playerCamera;
     [SerializeField] private Transform firePoint;
@@ -11,20 +11,39 @@ public class PlayerNetworkCaster : NetworkBehaviour
     [SyncVar] private bool loadoutReady;
     private SpellManager spells;
     private Health health;
+    private RelativeMovement movementController;
+    private WizardAppearance appearance;
     private readonly List<MagicElement> serverInput = new List<MagicElement>(3);
     private readonly Dictionary<Spell, double> serverCooldowns = new Dictionary<Spell, double>();
     private readonly Dictionary<Spell, double> clientCooldowns = new Dictionary<Spell, double>();
+    private readonly Dictionary<Spell, uint> cooldownConfirmations = new Dictionary<Spell, uint>();
     private double lastInputTime;
+    private uint localInputNumber, serverInputNumber;
+    private readonly Dictionary<uint, ulong> submittedCombos = new Dictionary<uint, ulong>();
+    private sealed class CastPreview
+    {
+        public GameObject root, visual;
+        public Vector3 velocity;
+        public Spell spell;
+        public double previousCooldown, predictedCooldown;
+        public uint confirmation;
+        public float expiresAt;
+    }
+    private readonly Dictionary<uint, CastPreview> previews = new Dictionary<uint, CastPreview>();
+    private readonly List<uint> expiredPreviews = new List<uint>();
     private bool resolvingCommand;
     private Ray commandAimRay;
     private Vector3 commandMoveDirection;
     public ElementLoadout Loadout => loadout;
+    public Camera ViewCamera => playerCamera;
     public bool LoadoutReady => loadoutReady;
     // получаем каталог заклинаний и здоровье этого персонажа.
     private void Awake()
     {
         spells = GetComponent<SpellManager>();
         health = GetComponent<Health>();
+        movementController = GetComponent<RelativeMovement>();
+        appearance = GetComponent<WizardAppearance>();
     }
     // отправляем серверу выбранный перед матчем набор стихий либо стандартный набор.
     public override void OnStartLocalPlayer()
@@ -44,10 +63,15 @@ public class PlayerNetworkCaster : NetworkBehaviour
     // отправляем номер слота вместе с лучом прицела и направлением движения для рывка.
     public void SubmitElement(int slot)
     {
-        if (!isLocalPlayer || !loadoutReady || PlayerGameUI.InputBlocked) return;
+        if (!isLocalPlayer || !loadoutReady || PlayerGameUI.InputBlocked || (movementController != null && movementController.IsStunned)) return;
         if (playerCamera == null) return;
+        CancelLocalAreaAim();
         Ray ray=playerCamera.ViewportPointToRay(new Vector3(.5f,.5f));
         var movement = GetComponent<RelativeMovement>();
+        uint inputNumber = ++localInputNumber;
+        var tracker = GetComponent<InputComboTracker>();
+        if (tracker != null) submittedCombos[inputNumber] = tracker.Revision;
+        if (!isServer) PreviewCast(inputNumber, ray);
         CmdSubmitElement(slot, ray.origin, ray.direction, movement != null ? movement.PlanarInputDirection : Vector3.zero);
     }
     // переводим центральный луч камеры в направление от фактической точки выпуска снаряда.
@@ -102,43 +126,183 @@ public class PlayerNetworkCaster : NetworkBehaviour
     [Command]
     private void CmdSubmitElement(int slot, Vector3 viewOrigin, Vector3 viewDirection, Vector3 moveDirection)
     {
-        // клиент передаёт намерение, а не готовое заклинание: сервер сам проверяет слот и допустимость прицела.
-        if (!loadoutReady || spells == null || slot < 0 || slot > 2 ||
-            (health != null && health.IsDead) || !ValidDirection(viewDirection) ||
-            !Finite(viewOrigin) || !Finite(moveDirection) || moveDirection.sqrMagnitude > 1.1f || (viewOrigin-transform.position).sqrMagnitude>100)
+        uint inputNumber = ++serverInputNumber;
+        pendingServerSpell = null;
+        bool accepted = false;
+        try
         {
+            // клиент передаёт намерение, а не готовое заклинание: сервер сам проверяет слот и допустимость прицела.
+            if (!loadoutReady || spells == null || slot < 0 || slot > 2 ||
+                (health != null && health.IsDead) || (movementController != null && movementController.IsStunned) || !ValidDirection(viewDirection) ||
+                !Finite(viewOrigin) || !Finite(moveDirection) || moveDirection.sqrMagnitude > 1.1f || (viewOrigin-transform.position).sqrMagnitude>100)
+            {
+                serverInput.Clear();
+                return;
+            }
+            double now = NetworkTime.time;
+            // сервер ведёт собственную историю нажатий; локальный буфер нужен только для интерфейса.
+            if (now - lastInputTime >= InputComboTracker.InputTimeout) serverInput.Clear();
+            lastInputTime = now;
+            if (serverInput.Count == 3) serverInput.RemoveAt(0);
+            serverInput.Add(loadout.Get(slot));
+            int index = spells.FindSpell(serverInput, loadout);
+            if (index < 0) return;
+            // совпадение с рецептом ещё не расходует ввод: перезарядка или недоступная цель сохраняют окно.
+            Spell spell = spells.GetSpell(index);
+            if (ServerRemainingCooldown(spell, now) > 0)
+            {
+                // при отказе возвращаем действительный срок: карточка не должна оставаться готовой раньше сервера.
+                TargetSetCooldown(index, serverCooldowns[spell]);
+                return;
+            }
+            if (RequiresAreaConfirmation(spell))
+            {
+                pendingServerSpell = spell;
+                pendingServerToken = inputNumber;
+                pendingServerUntil = now + 5;
+                serverInput.Clear();
+                TargetArmArea(index, inputNumber, pendingServerUntil);
+                return;
+            }
+            commandAimRay=new Ray(viewOrigin,viewDirection.normalized);
+            commandMoveDirection=Vector3.ProjectOnPlane(moveDirection,Vector3.up).normalized;
+            resolvingCommand=true;
+            bool activated;
+            // контекст прицела доступен только во время этого применения и очищается даже при исключении.
+            try { activated=spell.ActivateServer(this,ResolveAimDirection(commandAimRay)); }
+            finally { resolvingCommand=false; }
+            if (!activated) return;
+            // только успешно применённое заклинание начинает следующую комбинацию.
             serverInput.Clear();
-            return;
+            // клиент получает абсолютное время окончания, чтобы таймер не зависел от задержки доставки сообщения.
+            double readyAt = now + spell.Cooldown;
+            serverCooldowns[spell] = readyAt;
+            TargetSetCooldown(index, readyAt);
+            accepted = true;
         }
-        double now = NetworkTime.time;
-        // сервер ведёт собственную историю нажатий; локальный буфер нужен только для интерфейса.
-        if (now - lastInputTime >= InputComboTracker.InputTimeout) serverInput.Clear();
-        lastInputTime = now;
-        if (serverInput.Count == 3) serverInput.RemoveAt(0);
-        serverInput.Add(loadout.Get(slot));
-        int index = spells.FindSpell(serverInput, loadout);
-        if (index < 0) return;
-        // распознанный рецепт расходует комбинацию даже при ещё действующей перезарядке.
-        serverInput.Clear();
-        Spell spell = spells.GetSpell(index);
-        if (serverCooldowns.TryGetValue(spell, out double readyAt) && now < readyAt) return;
-        commandAimRay=new Ray(viewOrigin,viewDirection.normalized);
-        commandMoveDirection=Vector3.ProjectOnPlane(moveDirection,Vector3.up).normalized;
-        resolvingCommand=true;
-        bool activated;
-        // контекст прицела доступен только во время этого применения и очищается даже при исключении.
-        try { activated=spell.ActivateServer(this,ResolveAimDirection(commandAimRay)); }
-        finally { resolvingCommand=false; }
-        if (!activated) return;
-        // клиент получает абсолютное время окончания, чтобы таймер не зависел от задержки доставки сообщения.
-        readyAt = now + spell.Cooldown;
-        serverCooldowns[spell] = readyAt;
-        TargetSetCooldown(index, readyAt);
+        finally
+        {
+            // сообщение идёт после сетевого создания: удаляем предварительную графику или отменяем отказанный выстрел.
+            TargetResolvePreview(inputNumber, accepted);
+        }
     }
     // сервер очищает комбинацию после смерти или истечения времени ввода.
     private void Update()
     {
+        UpdatePreviews();
+        UpdateAreaAim();
+        UpdateChannelAim();
         if (isServer && ((health != null && health.IsDead) || NetworkTime.time - lastInputTime >= InputComboTracker.InputTimeout)) serverInput.Clear();
+    }
+    // локальная копия содержит только графику; у неё нет физики, сетевых действий и расчёта попаданий.
+    private void PreviewCast(uint inputNumber, Ray ray)
+    {
+        var tracker = GetComponent<InputComboTracker>();
+        if (tracker == null || spells == null || (health != null && health.IsDead)) return;
+        int index = spells.FindSpell(tracker.History, loadout);
+        Spell spell = spells.GetSpell(index);
+        if (spell == null || RemainingCooldown(spell) > 0 || previews.Count >= 16) return;
+        if (RequiresAreaConfirmation(spell)) return;
+        GameObject prefab = null;
+        float speed = 0;
+        Color tint = new Color(.7f,.85f,1f);
+        if (spell is FireBall fire) { prefab = fire.PreviewPrefab; speed = fire.ProjectileSpeed; tint = new Color(1,.3f,.04f); }
+        else if (spell is WindFlow wind) { prefab = wind.PreviewPrefab; speed = wind.ProjectileSpeed; }
+        else if (spell is ElementalSpell elemental)
+        {
+            tint = elemental.tint;
+            if (elemental.mode == ElementalCastMode.Bolt) { prefab = elemental.effectPrefab; speed = elemental.speed; }
+        }
+        else if (spell is TacticalSpell tactical) tint = tactical.tint;
+        Vector3 previewPosition = ShotOrigin(), previewDirection = ResolveAimDirection(ray);
+        if (prefab != null && !TryProjectileLaunch(prefab, ray, previewDirection, out previewPosition, out previewDirection)) return;
+        var preview = new CastPreview { spell = spell, expiresAt = Time.unscaledTime + 2f };
+        clientCooldowns.TryGetValue(spell, out preview.previousCooldown);
+        cooldownConfirmations.TryGetValue(spell, out preview.confirmation);
+        preview.predictedCooldown = NetworkTime.time + spell.Cooldown;
+        clientCooldowns[spell] = preview.predictedCooldown;
+        previews.Add(inputNumber, preview);
+        if (prefab == null)
+        {
+            // для областей и усилений подтверждаем нажатие короткой вспышкой у посоха; сам эффект создаёт сервер.
+            ElementalVisual.Burst(ShotOrigin(), tint, .35f);
+            return;
+        }
+        preview.root = new GameObject("Local cast preview");
+        preview.root.SetActive(false);
+        preview.visual = Instantiate(prefab, previewPosition, Quaternion.LookRotation(previewDirection), preview.root.transform);
+        foreach (var behaviour in preview.visual.GetComponentsInChildren<MonoBehaviour>(true))
+            behaviour.enabled = behaviour is SpellVfx || behaviour is ElementalVisual;
+        foreach (var collider in preview.visual.GetComponentsInChildren<Collider>(true)) collider.enabled = false;
+        foreach (var body in preview.visual.GetComponentsInChildren<Rigidbody>(true))
+        {
+            body.isKinematic = true;
+            body.detectCollisions = false;
+        }
+        foreach (var child in preview.visual.GetComponentsInChildren<Transform>(true)) child.gameObject.layer = 2;
+        preview.velocity = preview.visual.transform.forward * speed;
+        preview.root.SetActive(true);
+    }
+    // ведём только предварительную графику и прекращаем её у стены без фиктивного урона или взрыва.
+    private void UpdatePreviews()
+    {
+        if (previews.Count == 0) return;
+        expiredPreviews.Clear();
+        foreach (var entry in previews)
+        {
+            var preview = entry.Value;
+            if (!isLocalPlayer || (health != null && health.IsDead))
+            {
+                expiredPreviews.Add(entry.Key);
+                continue;
+            }
+            // две секунды ограничивают только предварительную графику, а не серверную перезарядку.
+            // сохраняем ожидание ответа, чтобы поздний отказ ещё мог вернуть прежний таймер.
+            if (Time.unscaledTime >= preview.expiresAt)
+            {
+                if (preview.root != null) Destroy(preview.root);
+                preview.root = preview.visual = null;
+                if (NetworkTime.time >= preview.predictedCooldown) expiredPreviews.Add(entry.Key);
+                continue;
+            }
+            if (preview.visual == null || !preview.visual.activeSelf) continue;
+            Vector3 delta = preview.velocity * Time.deltaTime;
+            if (delta.sqrMagnitude > 0 && FirstAimHit(new Ray(preview.visual.transform.position, delta.normalized), delta.magnitude, out _))
+                preview.visual.SetActive(false);
+            else preview.visual.transform.position += delta;
+        }
+        foreach (uint id in expiredPreviews) FinishPreview(id, true);
+    }
+    // серверное подтверждение заменяет предварительную графику настоящим объектом, отказ возвращает таймер.
+    [TargetRpc]
+    private void TargetResolvePreview(uint inputNumber, bool accepted)
+    {
+        // запоздалый ответ не должен стирать нажатия, сделанные после подтверждённого заклинания.
+        if (submittedCombos.TryGetValue(inputNumber, out ulong revision))
+        {
+            if (accepted) GetComponent<InputComboTracker>()?.ClearThrough(revision);
+            submittedCombos.Remove(inputNumber);
+        }
+        FinishPreview(inputNumber, accepted);
+    }
+    private void FinishPreview(uint inputNumber, bool accepted)
+    {
+        if (!previews.TryGetValue(inputNumber, out var preview)) return;
+        if (preview.root != null) Destroy(preview.root);
+        cooldownConfirmations.TryGetValue(preview.spell, out uint confirmation);
+        if (!accepted && confirmation == preview.confirmation &&
+            clientCooldowns.TryGetValue(preview.spell, out double current) && current == preview.predictedCooldown)
+            clientCooldowns[preview.spell] = preview.previousCooldown;
+        previews.Remove(inputNumber);
+    }
+    // удаляем несетевые копии при выходе игрока, включая смену сцены и разрыв соединения.
+    public override void OnStopClient()
+    {
+        CancelLocalAreaAim();
+        foreach (var preview in previews.Values) if (preview.root != null) Destroy(preview.root);
+        previews.Clear();
+        submittedCombos.Clear();
+        base.OnStopClient();
     }
     // отбрасываем нечисловые, бесконечные, почти нулевые и чрезмерно большие направления.
     private static bool ValidDirection(Vector3 value)
@@ -154,11 +318,20 @@ public class PlayerNetworkCaster : NetworkBehaviour
     private void TargetSetCooldown(int index, double readyAt)
     {
         Spell spell = spells.GetSpell(index);
-        if (spell != null) clientCooldowns[spell] = readyAt;
+        if (spell != null) ConfirmCooldown(spell, readyAt);
     }
+    // подтверждённый срок нельзя отменить удалением старого предварительного эффекта, даже при равных числах.
+    private void ConfirmCooldown(Spell spell, double readyAt)
+    {
+        clientCooldowns[spell] = readyAt;
+        cooldownConfirmations.TryGetValue(spell, out uint version);
+        cooldownConfirmations[spell] = version + 1;
+    }
+    private double ServerRemainingCooldown(Spell spell, double now) =>
+        serverCooldowns.TryGetValue(spell, out double readyAt) ? System.Math.Max(0, readyAt - now) : 0;
     // вычисляем оставшееся время по сетевым часам, не допуская отрицательного результата.
-    public double RemainingCooldown(Spell spell) => clientCooldowns.TryGetValue(spell, out double readyAt) ?
-        System.Math.Max(0, readyAt - NetworkTime.time) : 0;
+    public double RemainingCooldown(Spell spell) => isServer ? ServerRemainingCooldown(spell, NetworkTime.time) :
+        clientCooldowns.TryGetValue(spell, out double readyAt) ? System.Math.Max(0, readyAt - NetworkTime.time) : 0;
     // сервер проверяет место применения, выполняет рывок при необходимости и создаёт тактический объект.
     [Server]
     public bool CastTactical(TacticalSpell spell, Vector3 direction)
@@ -185,7 +358,7 @@ public class PlayerNetworkCaster : NetworkBehaviour
             if (spell.kind == TacticalKind.StoneWall)
             {
                 // не создаём твёрдую стену внутри игрока или существующей геометрии.
-                if (Physics.OverlapBox(position + Vector3.up * 1.35f, new Vector3(1.9f,1.35f,.275f), Quaternion.LookRotation(flat), ~(1<<2), QueryTriggerInteraction.Ignore).Length > 0) return false;
+                if (Physics.OverlapBox(position + Vector3.up * 2.025f, new Vector3(1.9f,2.025f,.275f), Quaternion.LookRotation(flat), ~(1<<2), QueryTriggerInteraction.Ignore).Length > 0) return false;
             }
         }
         else if (spell.kind == TacticalKind.IceMirror) position = transform.position + flat * 1.5f;
@@ -198,6 +371,7 @@ public class PlayerNetworkCaster : NetworkBehaviour
         var effect = Instantiate(spell.effectPrefab,position,Quaternion.LookRotation(flat));
         effect.GetComponent<TacticalEffect>().ownerId = netId;
         NetworkServer.Spawn(effect);
+        appearance?.ServerPlayCast(WizardCastMotion.ForSpell(spell), position, true);
         return true;
     }
     // сервер применяет щит либо создаёт снаряд, наземную зону или эффект вокруг мага.
@@ -205,17 +379,28 @@ public class PlayerNetworkCaster : NetworkBehaviour
     public bool CastElemental(ElementalSpell spell, Vector3 direction)
     {
         if (spell == null || !ValidDirection(direction)) return false;
+        if (spell.name == "BoilingJet" && !emittingChannelDrop)
+        {
+            if (channelRoutine != null || spell.effectPrefab == null || firePoint == null) return false;
+            channelRay = resolvingCommand ? commandAimRay : new Ray(ShotOrigin(), direction);
+            channelRoutine = StartCoroutine(EmitBoilingDrops(spell));
+            TargetChannelStarted();
+            return true;
+        }
         if (spell.mode == ElementalCastMode.Shield)
         {
             if (health == null) return false;
             health.GrantShield(spell.shieldAmount, spell.duration);
+            appearance?.ServerPlayCast(WizardCastMotion.ForSpell(spell), direction, false);
             return true;
         }
         if (spell.effectPrefab == null || firePoint == null) return false;
         Vector3 flat = Vector3.ProjectOnPlane(direction, Vector3.up).normalized;
         if (flat.sqrMagnitude < 0.01f) flat = transform.forward;
         Vector3 position = ShotOrigin();
-        if (spell.mode == ElementalCastMode.GroundZone)
+        if (spell.mode == ElementalCastMode.Bolt &&
+            !TryProjectileLaunch(spell.effectPrefab, ProjectileAimRay(direction), direction, out position, out direction)) return false;
+        if (spell.mode == ElementalCastMode.GroundZone && spell.name != "SmokeCloud")
         {
             Ray ray=resolvingCommand?commandAimRay:new Ray(ShotOrigin(),direction.normalized);
             if(!TryGroundTarget(ray,out var ground))return false;
@@ -226,12 +411,58 @@ public class PlayerNetworkCaster : NetworkBehaviour
         effect.GetComponent<ElementalEffect>().ownerId = netId;
         var body = effect.GetComponent<Rigidbody>();
         body.useGravity=false;body.linearDamping=0;
-        body.linearVelocity = spell.mode == ElementalCastMode.Bolt || spell.mode == ElementalCastMode.Tornado ? direction.normalized * spell.speed : Vector3.zero;
+        body.linearVelocity = spell.mode == ElementalCastMode.Tornado ? flat * spell.speed :
+            spell.mode == ElementalCastMode.Bolt ? direction.normalized * spell.speed : Vector3.zero;
+        if (spell.name == "SmokeCloud")
+            effect.GetComponent<ArcSmokeProjectile>().Launch(ResolveThrowVelocity(resolvingCommand ? commandAimRay : new Ray(ShotOrigin(), direction)));
         foreach (Collider source in GetComponentsInChildren<Collider>())
             foreach (Collider target in effect.GetComponentsInChildren<Collider>()) Physics.IgnoreCollision(source, target);
         NetworkServer.Spawn(effect);
+        bool atPoint = spell.mode == ElementalCastMode.GroundZone;
+        appearance?.ServerPlayCast(WizardCastMotion.ForSpell(spell), atPoint ? position : direction, atPoint);
         return true;
     }
+    // проверяем цель на сервере; воздушный мост требует свободного объёма, но не опоры снизу.
+    [Server] public bool CastAdvanced(AdvancedSpell spell, Vector3 direction)
+    {
+        if (spell == null || spell.effectPrefab == null || health == null || health.IsDead || !ValidDirection(direction)) return false;
+        Vector3 flat = Vector3.ProjectOnPlane(direction, Vector3.up).normalized;
+        if (flat.sqrMagnitude < .01f) flat = transform.forward;
+        Vector3 position = ShotOrigin();
+        Quaternion rotation = Quaternion.LookRotation(flat);
+        if (spell.kind == AdvancedSpellKind.SteamLens)
+        {
+            position = ShotOrigin() + direction.normalized * 2;
+            rotation = Quaternion.LookRotation(direction);
+            if (FirstAimHit(new Ray(ShotOrigin(), direction.normalized), 2.1f, out _)) return false;
+            foreach (var obstacle in Physics.OverlapBox(position, new Vector3(1.1f,1.1f,.1f), rotation, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+                if (!obstacle.transform.IsChildOf(transform)) return false;
+        }
+        else if (spell.kind == AdvancedSpellKind.IceBridge)
+        {
+            var controller = GetComponent<CharacterController>();
+            Vector3 feet = transform.TransformPoint(controller.center) - Vector3.up * controller.height * transform.lossyScale.y * .5f;
+            position = feet + flat * (spell.bridgeSize.z * .5f + .5f) + Vector3.up * (.01f + spell.bridgeSize.y * .5f);
+            foreach (var obstacle in Physics.OverlapBox(position, spell.bridgeSize * .5f, rotation, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+                if (!obstacle.transform.IsChildOf(transform)) return false;
+        }
+        else if (!spell.IsProjectile)
+        {
+            if (!TryGroundTarget(resolvingCommand ? commandAimRay : new Ray(ShotOrigin(), direction), out var ground)) return false;
+            position = ground + Vector3.up * .05f;
+        }
+        var root = Instantiate(spell.effectPrefab, position, rotation);
+        var effect = root.GetComponent<AdvancedSpellEffect>();
+        effect.SetOwner(health);
+        effect.velocity = direction.normalized * spell.projectileSpeed;
+        if (spell.kind == AdvancedSpellKind.Meteor) movementController?.ApplySlow(.5f, spell.delay);
+        NetworkServer.Spawn(root);
+        var gesture = WizardCastMotion.ForSpell(spell);
+        appearance?.ServerPlayCast(gesture, spell.IsProjectile ? direction : position, !spell.IsProjectile,
+            spell.HasWarning ? Mathf.Max(WizardCastMotion.Duration(gesture), spell.delay) : 0);
+        return true;
+    }
+
     // создаём обычный сетевой снаряд, назначаем владельца и скорость до отправки клиентам.
     [Server]
     public bool SpawnProjectile(GameObject prefab, float speed, Vector3 direction)
@@ -239,7 +470,8 @@ public class PlayerNetworkCaster : NetworkBehaviour
         if (prefab == null || firePoint == null || !ValidDirection(direction) ||
             prefab.GetComponent<Rigidbody>() == null || prefab.GetComponent<NetworkIdentity>() == null) return false;
         direction.Normalize();
-        GameObject projectile = Instantiate(prefab, ShotOrigin(), Quaternion.LookRotation(direction));
+        if (!TryProjectileLaunch(prefab, ProjectileAimRay(direction), direction, out var position, out direction)) return false;
+        GameObject projectile = Instantiate(prefab, position, Quaternion.LookRotation(direction));
         if (projectile.TryGetComponent<FireballProjectile>(out var fire)) fire.ownerId = netId;
         if (projectile.TryGetComponent<WindFlowProjectile>(out var wind)) wind.ownerId = netId;
         // исключаем столкновения со всеми коллайдерами заклинателя, включая дочерние.
@@ -248,6 +480,7 @@ public class PlayerNetworkCaster : NetworkBehaviour
                 Physics.IgnoreCollision(source, target);
         var body=projectile.GetComponent<Rigidbody>();body.useGravity=false;body.linearDamping=0;body.linearVelocity = direction * speed;
         NetworkServer.Spawn(projectile);
+        appearance?.ServerPlayCast(WizardCastGesture.Shot, direction, false);
         return true;
     }
 }

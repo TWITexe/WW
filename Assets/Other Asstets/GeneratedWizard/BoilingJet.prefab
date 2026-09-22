@@ -120,7 +120,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 1.225, y: 1.225, z: 1.225}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 7201585494493384516}
@@ -243,6 +243,7 @@ MonoBehaviour:
   syncInterval: 0
   definition: {fileID: 11400000, guid: 0aec597e0ef370f4f9182f3bdf1fad3d, type: 2}
   ownerId: 0
+  bornAt: 0
 --- !u!96 &1396619835800406778
 TrailRenderer:
   serializedVersion: 3
@@ -393,7 +394,7 @@ MonoBehaviour:
   lineMaterial: {fileID: 2100000, guid: 7f5c585957fc23a47ad502e822df1b14, type: 2}
   fallbackTint: {r: 1, g: 0.6, b: 0.3, a: 1}
   projectile: 1
-  projectileVisualScale: 2.5
+  projectileVisualScale: 1
   tornadoHeight: 7
 --- !u!1001 &7211715767411616637
 PrefabInstance:

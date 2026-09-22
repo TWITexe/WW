@@ -32,7 +32,7 @@ public static class TacticalSpellBuilder
         var catalog=new List<TacticalSpell>();
         for(int i=0;i<6;i++)
         {
-            string path=Folder+"/"+Ids[i]+".asset";
+            string path="Assets/Scripts/Spells/Tactical/"+Ids[i]+".asset";
             var spell=AssetDatabase.LoadAssetAtPath<TacticalSpell>(path);
             if(spell==null){spell=ScriptableObject.CreateInstance<TacticalSpell>();AssetDatabase.CreateAsset(spell,path);}
             var data=new SerializedObject(spell);data.FindProperty("displayName").stringValue=Titles[i];data.FindProperty("description").stringValue=Texts[i];data.FindProperty("cooldown").floatValue=Cooldowns[i];
@@ -133,7 +133,7 @@ public static class TacticalSpellBuilder
         var ps=go.GetComponent<ParticleSystem>();ps.Stop(true,ParticleSystemStopBehavior.StopEmittingAndClear);var main=ps.main;main.loop=true;main.playOnAwake=true;main.startLifetime=1.2f;main.maxParticles=100;main.startSpeed=.4f;main.startSize=spell.kind==TacticalKind.SteamDash?.45f:.12f;main.startColor=spell.tint;
         var emission=ps.emission;emission.rateOverTime=35;var shape=ps.shape;shape.shapeType=ParticleSystemShapeType.Circle;shape.radius=radius;
         if(spell.kind==TacticalKind.GravityWell){var velocity=ps.velocityOverLifetime;velocity.enabled=true;velocity.radial=-2;main.startSpeed=0;}
-        ps.GetComponent<ParticleSystemRenderer>().sharedMaterial=AssetDatabase.LoadAssetAtPath<Material>("Assets/GeneratedWizard/ReadableSpellParticles.mat");
+        ps.GetComponent<ParticleSystemRenderer>().sharedMaterial=AssetDatabase.LoadAssetAtPath<Material>("Assets/Other Asstets/GeneratedWizard/ReadableSpellParticles.mat");
     }
     // дополняем обе разновидности интерфейса: книгу заклинаний и панель матча.
     static void AppendCards(GameObject root,List<TacticalSpell> spells)

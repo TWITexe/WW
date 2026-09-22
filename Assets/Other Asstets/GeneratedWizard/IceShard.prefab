@@ -98,11 +98,11 @@ GameObject:
   - component: {fileID: 2398050414047082218}
   - component: {fileID: 6244004243800500418}
   - component: {fileID: 1344854049408476024}
-  - component: {fileID: 2175815419173806884}
   - component: {fileID: 6473219648658928024}
   - component: {fileID: 6249972509659926428}
   - component: {fileID: 7822329870944560957}
   - component: {fileID: 6604177784561132637}
+  - component: {fileID: 7679787284077780319}
   m_Layer: 0
   m_Name: IceShard
   m_TagString: Untagged
@@ -120,7 +120,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 1.75, y: 1.75, z: 1.75}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 7643621227261176755}
@@ -206,27 +206,6 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 3
---- !u!135 &2175815419173806884
-SphereCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 9137601865884961054}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 1
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Radius: 0.2
-  m_Center: {x: 0, y: 0, z: 0}
 --- !u!114 &6473219648658928024
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -244,6 +223,7 @@ MonoBehaviour:
   syncInterval: 0
   definition: {fileID: 11400000, guid: ac1a38b12ef883f4f86a60ad9751e60d, type: 2}
   ownerId: 0
+  bornAt: 0
 --- !u!96 &6249972509659926428
 TrailRenderer:
   serializedVersion: 3
@@ -396,6 +376,29 @@ MonoBehaviour:
   projectile: 1
   projectileVisualScale: 2.5
   tornadoHeight: 7
+--- !u!136 &7679787284077780319
+CapsuleCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9137601865884961054}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Radius: 0.29576105
+  m_Height: 1.4890423
+  m_Direction: 2
+  m_Center: {x: -0.0044605136, y: -0.007702917, z: 0.032411873}
 --- !u!1001 &1107416605106358194
 PrefabInstance:
   m_ObjectHideFlags: 0

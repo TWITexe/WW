@@ -1,0 +1,43 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6f89fae8cda5a5c4b9b94bbbc5372d99, type: 3}
+  m_Name: BoilingIce
+  m_EditorClassIdentifier: 
+  hitEffect: 0
+  displayName: "\u041A\u0438\u043F\u044F\u0449\u0438\u0439 \u043B\u0451\u0434"
+  description: "\u0421\u043D\u0430\u0440\u044F\u0434 \u0437\u0430\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u0442\u0441\u044F
+    \u043D\u0430 0,8 \u0441 \u043F\u043E\u0441\u043B\u0435 \u0441\u0442\u043E\u043B\u043A\u043D\u043E\u0432\u0435\u043D\u0438\u044F,
+    \u0437\u0430\u0442\u0435\u043C \u0441\u043E\u0437\u0434\u0430\u0451\u0442 \u043E\u0431\u043B\u0430\u0441\u0442\u044C
+    \u0440\u0430\u0434\u0438\u0443\u0441\u043E\u043C 6,25 \u043C. \u041D\u0430\u043D\u043E\u0441\u0438\u0442
+    7 \u0431\u0430\u0437\u043E\u0432\u043E\u0433\u043E \u0443\u0440\u043E\u043D\u0430
+    \u0432 \u0441\u0435\u043A\u0443\u043D\u0434\u0443 \u0432 \u0442\u0435\u0447\u0435\u043D\u0438\u0435
+    5 \u0441."
+  recipe: 020000000000000004000000
+  cooldown: 12
+  kind: 4
+  effectPrefab: {fileID: 6471765429371318562, guid: fa19d9c60e8a31048a6bbecd7261257c, type: 3}
+  tint: {r: 0.4, g: 0.8, b: 1, a: 1}
+  radius: 6.25
+  delay: 0
+  duration: 5
+  tickInterval: 1
+  impactDamage: 0
+  tickDamage: 7
+  healPerTick: 0
+  slow: 1
+  slowDuration: 2
+  stunDuration: 0
+  projectileSpeed: 26.249998
+  projectileGravity: 9
+  impactDelay: 0.8
+  impactOffsets: []
+  bridgeSize: {x: 3, y: 0.2, z: 10}

@@ -12,11 +12,15 @@ public class PlayerGameUI : MonoBehaviour
     private PlayerNetworkCaster caster;
     private SpellManager spells;
     private Health health;
+    private RelativeMovement movement;
     private InputComboTracker comboTracker;
     [SerializeField] private Canvas canvas;
     [SerializeField] private GameObject pause, scoreboard;
     [SerializeField] private Text status, combo, table;
     [SerializeField] private Image healthFill;
+    [SerializeField] private Image staminaFill;
+    [SerializeField] private Text staminaLabel;
+    private int displayedStamina = -1;
     [SerializeField] private Text killColumn, deathColumn, pingColumn;
     [SerializeField] private RectTransform scoreContent;
     [SerializeField] private Button resumeButton, menuButton, quitButton;
@@ -27,6 +31,8 @@ public class PlayerGameUI : MonoBehaviour
     private int displayedHealth = -1, displayedShield = -1, displayedMaxHealth = -1;
     private string loadoutCaption;
     private int displayedCombo = int.MinValue;
+    [SerializeField] private Text killFeed;
+    private float nextKillFeed;
     [SerializeField] private List<Card> cards=new List<Card>();
     // объединяет ссылки на элементы одной карточки заклинания в интерфейсе матча.
     [System.Serializable]
@@ -44,6 +50,9 @@ public class PlayerGameUI : MonoBehaviour
     private void Start()
     {
         canvas.enabled=false;
+        MatchKillFeed.Clear();
+        cards.Sort((a,b)=>Spell.CompareSimplicity(a.spell,b.spell));
+        foreach(var card in cards)card.root.transform.SetAsLastSibling();
         pause.SetActive(false);scoreboard.SetActive(false);
         resumeButton.onClick.AddListener(()=>SetPause(false));
         menuButton.onClick.AddListener(ReturnToMenu);
@@ -60,6 +69,8 @@ public class PlayerGameUI : MonoBehaviour
             if(caster==null)return;
             spells=caster.GetComponent<SpellManager>();health=caster.GetComponent<Health>();
             comboTracker = caster.GetComponent<InputComboTracker>();
+            movement = caster.GetComponent<RelativeMovement>();
+            displayedStamina = -1;
             canvas.enabled=true;built=false;SetPause(false);
         }
         if(Input.GetKeyDown(KeyCode.Escape))SetPause(!InputBlocked);
@@ -85,6 +96,19 @@ public class PlayerGameUI : MonoBehaviour
             status.text=$"Здоровье  {displayedHealth} / {displayedMaxHealth}"+(displayedShield>0?$"   Щит  {displayedShield}":"");
         }
         if (healthFill != null) healthFill.fillAmount = Mathf.Clamp01((float)health.CurrentHealth / Mathf.Max(1, health.MaxHealth));
+        // показываем предсказанный запас владельца, который сверяется с сервером вместе с позицией.
+        if (movement != null && staminaFill != null)
+        {
+            float fraction = health.IsDead ? 0 : Mathf.Clamp01(movement.Stamina / Mathf.Max(1, movement.MaxStamina));
+            staminaFill.rectTransform.anchorMax = new Vector2(fraction, 1);
+            staminaFill.color = fraction <= .2f ? new Color(1,.4f,.16f) : new Color(.25f,.9f,.75f);
+            int value = Mathf.CeilToInt(fraction * movement.MaxStamina);
+            if (staminaLabel != null && value != displayedStamina)
+            {
+                displayedStamina = value;
+                staminaLabel.text = $"Стамина  {value} / {Mathf.RoundToInt(movement.MaxStamina)}";
+            }
+        }
         // код последовательности позволяет заметить изменение без создания строк и массивов при неподвижном вводе.
         int comboCode = 1;
         for (int index = 0; index < comboTracker.History.Count; index++)
@@ -96,6 +120,13 @@ public class PlayerGameUI : MonoBehaviour
             displayedCombo = comboCode;
             combo.text = health.IsDead ? "Возрождение…" : caster.LoadoutReady ?
                 loadoutCaption + caster.Loadout.KeysFor(comboTracker.History) : "Подготовка стихий…";
+        }
+        string areaCaption=caster.AreaAimCaption;
+        if(areaCaption != null) { combo.text = areaCaption; displayedCombo=int.MinValue; }
+        if(killFeed!=null && Time.unscaledTime>=nextKillFeed)
+        {
+            nextKillFeed=Time.unscaledTime+.1f;
+            killFeed.text=MatchKillFeed.Read();
         }
         foreach(var card in cards)
         {
@@ -109,7 +140,8 @@ public class PlayerGameUI : MonoBehaviour
                 card.displayedSeconds = secondsLeft;
                 card.seconds.text = secondsLeft > 0 ? secondsLeft.ToString() : "";
             }
-            card.icon.color=SpellIconGraphic.Tint(card.spell)*(remaining>0?.65f:1);
+            // всю карточку затемняет маска: иконка под ней сохраняет свой цвет без скачка при готовности.
+            card.icon.color=SpellIconGraphic.Tint(card.spell);
         }
         // обновляем открытую таблицу четыре раза в секунду, а не пересобираем строки каждый кадр.
         if(scoreboard.activeSelf&&Time.unscaledTime>=nextScore){nextScore=Time.unscaledTime+.25f;RefreshScoreboard();}
@@ -125,7 +157,8 @@ public class PlayerGameUI : MonoBehaviour
     {
         var players=PlayerStats.ClientPlayers.OrderByDescending(p=>p.Kills).ThenBy(p=>p.Deaths).ThenBy(p=>p.netId);
         var ordered=players.ToList();
-        table.text=string.Join("\n",ordered.Select(p=>p.DisplayName+(p.isLocalPlayer?"  (ты)":"")));
+        table.supportRichText=true;
+        table.text=string.Join("\n",ordered.Select(p=>MatchKillFeed.ColoredName("● ",p.DisplayColor)+p.DisplayName.Replace("<", "").Replace(">", "")+(p.isLocalPlayer?"  (ты)":"")));
         killColumn.text=string.Join("\n",ordered.Select(p=>p.Kills));
         deathColumn.text=string.Join("\n",ordered.Select(p=>p.Deaths));
         pingColumn.text=string.Join("\n",ordered.Select(p=>p.Ping+" мс"));
@@ -162,6 +195,15 @@ public class PlayerGameUI : MonoBehaviour
         canvas=root.GetComponent<Canvas>();canvas.renderMode=RenderMode.ScreenSpaceOverlay;canvas.sortingOrder=150;
         var scale=root.GetComponent<CanvasScaler>();scale.uiScaleMode=CanvasScaler.ScaleMode.ScaleWithScreenSize;
         scale.referenceResolution=new Vector2(1280,720);scale.matchWidthOrHeight=.5f;
+        // сохраняем полоску справа над нижним рядом заклинаний.
+        var staminaPanel=Panel(root.transform,"Stamina",1,0,-260,104,236,18);
+        staminaPanel.GetComponent<Image>().raycastTarget=false;
+        var staminaBar=Panel(staminaPanel.transform,"Stamina fill",0,0,0,0,0,0);
+        staminaFill=staminaBar.GetComponent<Image>();staminaFill.raycastTarget=false;
+        var staminaRect=staminaFill.rectTransform;staminaRect.anchorMax=Vector2.one;
+        staminaRect.offsetMin=staminaRect.offsetMax=Vector2.zero;
+        staminaLabel=Label(root.transform,"Стамина  100 / 100",18,1,0,-260,126,236,28);
+        staminaLabel.alignment=TextAnchor.MiddleRight;
         status=Label(root.transform,"",24,0,1,24,-60,650,38);
         Label(root.transform,"ESC — меню   ·   TAB — игроки",20,1,1,-390,-52,370,32);
         var cross=Label(root.transform,"+",32,.5f,.5f,-18,-18,36,36);cross.alignment=TextAnchor.MiddleCenter;
@@ -219,8 +261,43 @@ public class PlayerGameUI : MonoBehaviour
             cards.Add(new Card{spell=spell,root=panel,keys=keys,icon=icon,cover=cover,seconds=seconds});
             panel.SetActive(spell.IsAvailable(ElementLoadout.Default));
         }
+        EditorStyleCooldowns();
         // переносим меню поверх карточек, добавленных после первоначального создания холста.
         pause.transform.SetAsLastSibling();scoreboard.transform.SetAsLastSibling();
+    }
+    // сохраняем оформление в префабе: маска покрывает всю карточку, число остаётся поверх затемнения.
+    public void EditorStyleCooldowns()
+    {
+        foreach (var card in cards)
+        {
+            var cover = card.cover;
+            cover.transform.SetParent(card.root.transform, false);
+            cover.rectTransform.anchorMin = Vector2.zero;
+            cover.rectTransform.anchorMax = Vector2.one;
+            cover.rectTransform.offsetMin = cover.rectTransform.offsetMax = Vector2.zero;
+            cover.color = new Color(0, 0, 0, .72f);
+            cover.type = Image.Type.Filled;
+            cover.fillMethod = Image.FillMethod.Vertical;
+            cover.fillOrigin = 0;
+            cover.raycastTarget = false;
+            cover.transform.SetAsLastSibling();
+
+            var seconds = card.seconds;
+            seconds.transform.SetParent(card.root.transform, false);
+            seconds.rectTransform.anchorMin = Vector2.zero;
+            seconds.rectTransform.anchorMax = Vector2.one;
+            seconds.rectTransform.offsetMin = new Vector2(1, 14);
+            seconds.rectTransform.offsetMax = new Vector2(-1, -1);
+            seconds.fontSize = 38;
+            seconds.resizeTextForBestFit = true;
+            seconds.resizeTextMinSize = 24;
+            seconds.resizeTextMaxSize = 42;
+            seconds.fontStyle = FontStyle.Normal;
+            seconds.color = new Color(1, 1, 1, .75f);
+            seconds.alignment = TextAnchor.MiddleCenter;
+            seconds.raycastTarget = false;
+            seconds.transform.SetAsLastSibling();
+        }
     }
     // создаём растянутую затемняющую подложку для меню или таблицы игроков.
     private GameObject Shade(Transform parent,string name)

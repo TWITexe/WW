@@ -130,8 +130,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 5
-  m_fontSizeBase: 5
+  m_fontSize: 6.5
+  m_fontSizeBase: 6.5
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -190,7 +190,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   label: {fileID: 4514799779527151967}
-  lifetime: 1
-  riseSpeed: 0.8
-  normalColor: {r: 1, g: 1, b: 1, a: 1}
-  headColor: {r: 1, g: 0.7, b: 0.15, a: 1}
+  lifetime: 2.5
+  riseSpeed: 1.5
+  normalColor: {r: 1, g: 1, b: 0.3, a: 1}
+  headColor: {r: 1, g: 0.08, b: 0.06, a: 1}

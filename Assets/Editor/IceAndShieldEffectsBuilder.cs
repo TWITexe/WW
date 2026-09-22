@@ -11,10 +11,10 @@ using UnityEngine.SceneManagement;
 // подключает эффекты пакета к ледяному копью и каменной коже, сохраняя игровые параметры.
 public static class IceAndShieldEffectsBuilder
 {
-    private const string IcePath = "Assets/GeneratedWizard/IceShard.prefab";
+    private const string IcePath = "Assets/Other Asstets/GeneratedWizard/IceShard.prefab";
     private const string PlayerPath = "Assets/Prefabs/Player.prefab";
-    private const string ShieldPath = "Assets/GeneratedWizard/StoneSkinShield.prefab";
-    private const string MaterialsPath = "Assets/GeneratedWizard/ImportedSpellMaterials";
+    private const string ShieldPath = "Assets/Other Asstets/GeneratedWizard/StoneSkinShield.prefab";
+    private const string MaterialsPath = "Assets/Other Asstets/GeneratedWizard/ImportedSpellMaterials";
     private const string PackPath = "Assets/Hovl Studio/Magic effects pack/Prefabs/";
 
     // делаем резервные копии и обновляем существующие префабы без замены сетевого корня снаряда.
@@ -23,7 +23,7 @@ public static class IceAndShieldEffectsBuilder
     {
         if (Application.isPlaying) throw new InvalidOperationException("Install outside Play Mode.");
         Directory.CreateDirectory("Logs/IceAndShieldEffects");
-        foreach (string path in new[] { IcePath, PlayerPath, "Assets/GeneratedWizard/StoneSkin.asset" })
+        foreach (string path in new[] { IcePath, PlayerPath, "Assets/Scripts/Spells/Elemental/StoneSkin.asset" })
         {
             string backup = "Logs/IceAndShieldEffects/" + Path.GetFileName(path);
             if (!File.Exists(backup)) File.Copy(path, backup);
@@ -94,7 +94,7 @@ public static class IceAndShieldEffectsBuilder
     // эффект щита следует за игроком и живёт по синхронизированному запасу защиты, включая досрочное разрушение.
     private static void InstallShield()
     {
-        var spell = AssetDatabase.LoadAssetAtPath<ElementalSpell>("Assets/GeneratedWizard/StoneSkin.asset");
+        var spell = AssetDatabase.LoadAssetAtPath<ElementalSpell>("Assets/Scripts/Spells/Elemental/StoneSkin.asset");
         var source = AssetDatabase.LoadAssetAtPath<GameObject>(PackPath + "Magic shields/Magic shield gray.prefab");
         var shield = (GameObject)PrefabUtility.InstantiatePrefab(source);
         try
@@ -188,8 +188,8 @@ public static class IceAndShieldEffectsBuilder
     [MenuItem("Tools/Wizard War/Validate ice and shield effects")]
     public static void Validate()
     {
-        var ice = AssetDatabase.LoadAssetAtPath<ElementalSpell>("Assets/GeneratedWizard/IceShard.asset");
-        var stone = AssetDatabase.LoadAssetAtPath<ElementalSpell>("Assets/GeneratedWizard/StoneSkin.asset");
+        var ice = AssetDatabase.LoadAssetAtPath<ElementalSpell>("Assets/Scripts/Spells/Elemental/IceShard.asset");
+        var stone = AssetDatabase.LoadAssetAtPath<ElementalSpell>("Assets/Scripts/Spells/Elemental/StoneSkin.asset");
         if (ice.damage != 22 || ice.speed != 24 || ice.duration != 4 || ice.effectPrefab.GetComponent<NetworkIdentity>() == null)
             throw new InvalidOperationException("Ice gameplay settings changed.");
         var crystal = ice.effectPrefab.GetComponentsInChildren<ParticleSystem>().Single(item => item.name == "Ice spear - Crystal effect blue");

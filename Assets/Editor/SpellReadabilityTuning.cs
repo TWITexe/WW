@@ -13,14 +13,14 @@ public static class SpellReadabilityTuning
     public static void Apply()
     {
         changed.Clear();
-        const string particlePath = "Assets/GeneratedWizard/ReadableSpellParticles.mat";
+        const string particlePath = "Assets/Other Asstets/GeneratedWizard/ReadableSpellParticles.mat";
         var particles = AssetDatabase.LoadAssetAtPath<Material>(particlePath);
-        if (particles == null) { particles = new Material(AssetDatabase.LoadAssetAtPath<Material>("Assets/GeneratedWizard/WaterBoltParticles.mat")); AssetDatabase.CreateAsset(particles, particlePath); }
+        if (particles == null) { particles = new Material(AssetDatabase.LoadAssetAtPath<Material>("Assets/Other Asstets/GeneratedWizard/WaterBoltParticles.mat")); AssetDatabase.CreateAsset(particles, particlePath); }
         particles.SetColor("_BaseColor", Color.white); particles.SetColor("_EmissionColor", Color.black);
         particles.DisableKeyword("_EMISSION"); EditorUtility.SetDirty(particles); changed.Add(particlePath);
         Tune("Assets/Prefabs/FireBall.prefab", null, particles, new Color(1, .3f, .04f));
         Tune("Assets/Prefabs/WindFlow.prefab", null, particles, new Color(.5f, 1, .85f));
-        foreach (string guid in AssetDatabase.FindAssets("t:ElementalSpell", new[] {"Assets/GeneratedWizard"}))
+        foreach (string guid in AssetDatabase.FindAssets("t:ElementalSpell", new[] {"Assets/Scripts/Spells/Elemental"}))
         {
             var spell = AssetDatabase.LoadAssetAtPath<ElementalSpell>(AssetDatabase.GUIDToAssetPath(guid));
             if (spell.effectPrefab == null) continue;
@@ -63,7 +63,7 @@ public static class SpellReadabilityTuning
                 importedVfx.size = (root.name == "FireBall" ? .65f : root.name == "WindFlow" ? .75f : root.name == "Boulder" ? .9f : .6f) * 2.5f;
                 importedVfx.Configure();
             }
-            string materialPath = "Assets/GeneratedWizard/Readable_" + root.name + ".mat";
+            string materialPath = "Assets/Other Asstets/GeneratedWizard/Readable_" + root.name + ".mat";
             var line = AssetDatabase.LoadAssetAtPath<Material>(materialPath);
             if (line == null) { line = new Material(Shader.Find("Universal Render Pipeline/Unlit")); AssetDatabase.CreateAsset(line, materialPath); }
             line.SetColor("_BaseColor", tint * (bolt ? 1.5f : 1f)); EditorUtility.SetDirty(line); changed.Add(materialPath);

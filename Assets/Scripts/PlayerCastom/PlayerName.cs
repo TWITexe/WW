@@ -35,6 +35,7 @@ public class PlayerName : NetworkBehaviour
             return "Player";
 
         value = value.Trim();
+        value = value.Replace("<", "").Replace(">", "").Replace("\n", " ").Replace("\r", " ");
 
         if (value.Length > 16)
             value = value.Substring(0, 16);

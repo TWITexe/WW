@@ -39,6 +39,8 @@ public class WindFlowProjectile : NetworkBehaviour
         if (TacticalEffect.TryReflect(other,transform,ownerId,out uint reflected)) { ownerId=reflected;previous=transform.position;return; }
         other.GetComponentInParent<TacticalEffect>()?.ProjectileHit(ownerId);
         consumed = true;
+        // порыв разносит лёгкие ящики, но прочную каменную секцию нужно предварительно ослабить.
+        ArenaDestructible.Hit(other, point, 20, 12);
         RelativeMovement target = other.GetComponentInParent<RelativeMovement>();
         Health health = other.GetComponentInParent<Health>();
         if (health != null) health.RecordAttacker(ownerId);

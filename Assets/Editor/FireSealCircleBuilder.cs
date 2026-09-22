@@ -116,7 +116,7 @@ public static class FireSealCircleBuilder
     public static void Validate()
     {
         var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(TargetPath);
-        var spell = AssetDatabase.LoadAssetAtPath<TacticalSpell>("Assets/TacticalSpells/FireSeal.asset");
+        var spell = AssetDatabase.LoadAssetAtPath<TacticalSpell>("Assets/Scripts/Spells/Tactical/FireSeal.asset");
         if (prefab.GetComponent<NetworkIdentity>() == null || prefab.GetComponent<TacticalEffect>().definition != spell
             || spell.effectPrefab != prefab || spell.duration != 9 || spell.damage != 35 || spell.radius != 3)
             throw new InvalidOperationException("Fire seal gameplay or network references changed.");

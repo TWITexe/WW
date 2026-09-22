@@ -8,13 +8,19 @@ public class PlayerStats : NetworkBehaviour
     private static readonly HashSet<PlayerStats> clientPlayers = new HashSet<PlayerStats>();
     public static IEnumerable<PlayerStats> ClientPlayers => clientPlayers;
     private PlayerName playerName;
+    private PlayerColor playerColor;
+    public Color DisplayColor => playerColor != null ? playerColor.DisplayColor : Color.white;
 
     // сбрасываем реестр и при запуске без перезагрузки домена редактора.
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ResetRegistry() => clientPlayers.Clear();
 
     // получаем ссылку на имя один раз, а не при каждом обновлении таблицы.
-    private void Awake() => playerName = GetComponentInChildren<PlayerName>(true);
+    private void Awake()
+    {
+        playerName = GetComponentInChildren<PlayerName>(true);
+        playerColor = GetComponentInChildren<PlayerColor>(true);
+    }
 
     // сетевые обратные вызовы поддерживают список без поиска по всей сцене.
     public override void OnStartClient()

@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a2f542083314fc19e519c4b42982f79, type: 3}
+  m_Name: SteamCloud
+  m_EditorClassIdentifier: 
+  hitEffect: 0
+  displayName: "\u041F\u0430\u0440\u043E\u0432\u043E\u0435 \u043E\u0431\u043B\u0430\u043A\u043E"
+  description: "\u041E\u0431\u043B\u0430\u0441\u0442\u044C \u0440\u0430\u0434\u0438\u0443\u0441\u043E\u043C
+    3,2 \u043C \u043D\u0430 6,5 \u0441. \u041D\u0430\u043D\u043E\u0441\u0438\u0442
+    8 \u0431\u0430\u0437\u043E\u0432\u043E\u0433\u043E \u0443\u0440\u043E\u043D\u0430
+    \u0432 \u0441\u0435\u043A\u0443\u043D\u0434\u0443. \u0417\u0430\u043C\u0435\u0434\u043B\u044F\u0435\u0442
+    \u043D\u0430 20% \u043D\u0430 2 \u0441. \u041B\u041A\u041C \u2014 \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u044C
+    \u043E\u0431\u043B\u0430\u0441\u0442\u044C."
+  recipe: 000000000000000004000000
+  cooldown: 10
+  mode: 1
+  effectPrefab: {fileID: 8644195309251027366, guid: 176e654f60a0f3a47a5dd883f354bdba, type: 3}
+  tint: {r: 0.8, g: 0.9, b: 0.95, a: 1}
+  speed: 0
+  duration: 6.5
+  radius: 3.2
+  damage: 4
+  tickInterval: 0.5
+  knockback: 0
+  lift: 0
+  slow: 0.8
+  slowDuration: 2
+  shieldAmount: 50

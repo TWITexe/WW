@@ -9,7 +9,7 @@ using Mirror;
 // создаёт базовое расширение из четырнадцати заклинаний и модель мага; повторный запуск перезаписывает настройки.
 public static class WizardExpansionBuilder
 {
-    const string Folder = "Assets/GeneratedWizard";
+    const string Folder = "Assets/Other Asstets/GeneratedWizard";
     // объединяет стандартные параметры одного генерируемого стихийного заклинания.
     class Spec
     {
@@ -30,22 +30,22 @@ public static class WizardExpansionBuilder
     {
         new Spec("WaterBolt","Водяной удар","Быстрый снаряд: 18 урона и лёгкое отталкивание.",new[]{4,4,4},ElementalCastMode.Bolt,Color.cyan,3,18,.4f,25,4,4),
         new Spec("IceShard","Ледяное копьё","22 урона. Замедляет цель на 40% на 2 секунды.",new[]{2,2,2},ElementalCastMode.Bolt,new Color(.6f,.85f,1),4,22,.4f,24,4,0,0,.6f),
-        new Spec("Boulder","Каменная глыба","Тяжёлый снаряд: 32 урона и сильный толчок.",new[]{3,3,3},ElementalCastMode.Bolt,new Color(.55f,.4f,.25f),5,32,.5f,13,5,10),
+        new Spec("Boulder","Каменная глыба","Тяжёлый снаряд: 32 урона и сильный толчок.",new[]{3,3,3},ElementalCastMode.Bolt,new Color(.55f,.4f,.25f),5,32,.5f,20,5,10),
         new Spec("SteamCloud","Паровое облако","Область на 4 секунды: 5 урона каждые 0,5 с; замедление 20%.",new[]{0,0,4},ElementalCastMode.GroundZone,new Color(.8f,.9f,.95f),8,5,3.2f,0,4,0,0,.8f),
         new Spec("BoilingJet","Кипящая струя","Быстрый заряд кипятка: взрыв на 28 урона в радиусе 2 м.",new[]{0,4,4},ElementalCastMode.Bolt,new Color(1,.6f,.3f),6,28,2,28,4,3),
         new Spec("FireTornado","Огненный торнадо","Движущийся вихрь на 5 секунд: 6 урона каждые 0,5 с; затягивает и подбрасывает.",new[]{0,1,1},ElementalCastMode.Tornado,new Color(1,.28f,.04f),10,6,2.3f,4,5,-4,6),
         new Spec("Blizzard","Метель","Область на 5 секунд: 4 урона каждые 0,5 с; замедление 50%.",new[]{1,2,2},ElementalCastMode.GroundZone,new Color(.55f,.75f,1),9,4,3.5f,0,5,0,0,.5f),
         new Spec("Mud","Грязевая трясина","Область на 5 секунд: замедление 65% и 2 урона каждые 0,5 с.",new[]{3,3,4},ElementalCastMode.GroundZone,new Color(.35f,.25f,.12f),8,2,3,0,5,0,0,.35f),
-        new Spec("Magma","Магматическая бомба","Медленная бомба: 40 урона в радиусе 3 м и отталкивание.",new[]{0,3,3},ElementalCastMode.Bolt,new Color(1,.12f,.03f),9,40,3,11,5,10,3),
+        new Spec("Magma","Магматическая бомба","Медленная бомба: 40 урона в радиусе 3 м и отталкивание.",new[]{0,3,3},ElementalCastMode.Bolt,new Color(1,.12f,.03f),9,40,3,18,5,10,3),
         new Spec("FrostNova","Ледяная волна","Вспышка вокруг мага: 14 урона в радиусе 4 м; замедление 60%.",new[]{2,2,4},ElementalCastMode.SelfBurst,new Color(.4f,.9f,1),8,14,4,0,1,5,0,.4f),
-        new Spec("StoneSkin","Каменная кожа","Щит поглощает до 50 урона в течение 5 секунд.",new[]{2,3,3},ElementalCastMode.Shield,new Color(.65f,.65f,.7f),12,0,0,0,5),
+        new Spec("StoneSkin","Каменная кожа","Щит поглощает до 50 урона в течение 5 секунд.",new[]{2,3,3},ElementalCastMode.Shield,new Color(.65f,.65f,.7f),24,0,0,0,5),
         new Spec("Geyser","Гейзер","Область на 1 секунду: 10 урона каждые 0,5 с и сильный подброс.",new[]{1,3,4},ElementalCastMode.GroundZone,new Color(.15f,.65f,1),8,10,2,0,1,2,12),
     };
     // создаём ассеты и префабы стихий, обновляем персонажа и сохраняем их регистрацию в сетевых сценах.
     [MenuItem("Tools/Wizard War/Build wizard expansion assets")]
     public static void Build()
     {
-        if (!AssetDatabase.IsValidFolder(Folder)) AssetDatabase.CreateFolder("Assets","GeneratedWizard");
+        if (!AssetDatabase.IsValidFolder(Folder)) AssetDatabase.CreateFolder("Assets/Other Asstets","GeneratedWizard");
         var spells = new List<Spell> {
             AssetDatabase.LoadAssetAtPath<Spell>("Assets/Scripts/Spells/FireBall/FireBall.asset"),
             AssetDatabase.LoadAssetAtPath<Spell>("Assets/Scripts/Spells/WindFlow/WindFlow.asset")
@@ -56,7 +56,7 @@ public static class WizardExpansionBuilder
         // значения спецификаций являются исходными настройками: повторная сборка заменит ручной баланс ассетов.
         foreach (Spec spec in Specs)
         {
-            string path = Folder + "/" + spec.id + ".asset";
+            string path = "Assets/Scripts/Spells/Elemental/" + spec.id + ".asset";
             var spell = AssetDatabase.LoadAssetAtPath<ElementalSpell>(path);
             if (spell == null) { spell = ScriptableObject.CreateInstance<ElementalSpell>(); AssetDatabase.CreateAsset(spell,path); }
             var so = new SerializedObject(spell);
@@ -72,6 +72,7 @@ public static class WizardExpansionBuilder
             if (spec.mode != ElementalCastMode.Shield)
             {
                 var go = new GameObject(spec.id);
+                if (spec.mode == ElementalCastMode.Bolt) go.transform.localScale = Vector3.one * 1.75f;
                 go.AddComponent<NetworkIdentity>();
                 var nt = go.AddComponent<NetworkTransformReliable>(); nt.syncDirection=SyncDirection.ServerToClient;
                 var body = go.AddComponent<Rigidbody>(); body.useGravity=false;

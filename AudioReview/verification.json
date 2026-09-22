@@ -1,0 +1,22 @@
+{
+  "click-muffled": {
+    "seconds": 0.555,
+    "peak_dbfs": -31.43
+  },
+  "whoosh-subtle": {
+    "seconds": 2.975,
+    "peak_dbfs": -20.05
+  },
+  "portal-loop": {
+    "seconds": 11.6,
+    "peak_dbfs": -8.19
+  },
+  "portal-loop-preview-4-cycles": {
+    "seconds": 46.402,
+    "peak_dbfs": -8.19
+  },
+  "portal_boundary": {
+    "max_step": 0.0011573224415513533,
+    "max_internal_step": 0.007092818218210913
+  }
+}

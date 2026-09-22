@@ -60,7 +60,7 @@ public static class RoomAndStatsSmoke
                 var response=(RoomDiscoveryResponse)typeof(RoomNetworkDiscovery).GetMethod("ProcessRequest",Fields).Invoke(discovery,new object[]{new RoomDiscoveryRequest(),new IPEndPoint(IPAddress.Loopback,17988)});
                 Check(response.roomName=="Арена 42","Discovery must advertise trimmed chosen room name");
                 Check(PlayerPrefs.GetString("LastRoomName")=="Арена 42","Room name remembered");
-                foreach(string path in new[]{"Assets/Prefabs/FireBall.prefab","Assets/Prefabs/WindFlow.prefab","Assets/GeneratedWizard/WaterBolt.prefab"})
+                foreach(string path in new[]{"Assets/Prefabs/FireBall.prefab","Assets/Prefabs/WindFlow.prefab","Assets/Other Asstets/GeneratedWizard/WaterBolt.prefab"})
                 {var prefab=AssetDatabase.LoadAssetAtPath<GameObject>(path);Check(prefab.GetComponent<ElementalVisual>().projectileVisualScale==2.5f,"Projectile visual scale must be 2.5");Check(prefab.GetComponent<Collider>()!=null,"Projectile hitbox retained");}
                 Debug.Log("ROOM_STATS_SMOKE_PASSED: "+checks+" checks");SessionState.SetBool(Flag,false);NetworkManager.singleton.StopHost();EditorApplication.Exit(0);
             }

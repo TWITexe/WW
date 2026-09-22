@@ -10,7 +10,16 @@ public class RelativeMovement : NetworkBehaviour
     [SerializeField] CameraShake cameraShake;
     [SerializeField] Camera playerCamera;
     [SerializeField] float rotSpeed = 8;
-    [SerializeField] float moveSpeed = 6;
+    [SerializeField] float moveSpeed = 9;
+    [SerializeField, Min(1)] float sprintMultiplier = 1.5f;
+    [SerializeField, Min(1)] float maxStamina = 100f;
+    [SerializeField, Min(.1f)] float sprintDrainPerSecond = 20f;
+    [SerializeField, Min(.1f)] float staminaRecoveryPerSecond = 25f;
+    float stamina;
+    bool sprinting;
+    public float Stamina => stamina;
+    public float MaxStamina => maxStamina;
+    public bool IsSprinting => sprinting;
     [SerializeField] float jumpSpeed = 15;
     [SerializeField] float gravity = -9.8f;
     [SerializeField] float terminalVelocity = -22;
@@ -34,7 +43,12 @@ public class RelativeMovement : NetworkBehaviour
         public Vector3 position, externalVelocity, dashVelocity;
         public Quaternion rotation;
         public float verticalSpeed, jumpCooldown, jumpSlow, dashRemaining, slowMultiplier;
-        public double slowUntil, simulationTime;
+        public float stamina;
+        public bool sprinting;
+        public double simulationTime;
+        public double stunUntil;
+        public Vector3 iceVelocity;
+        public SpellControlRules.TimedSlow[] slows;
         public bool jumping, dead;
     }
 
@@ -50,15 +64,18 @@ public class RelativeMovement : NetworkBehaviour
     MoveInput sampledInput, lastServerInput;
     bool jumpQueued, serverDead;
     float slowMultiplier = 1;
-    double slowUntil;
+    SpellControlRules.TimedSlow[] slows = System.Array.Empty<SpellControlRules.TimedSlow>();
+    double nextPeriodicLiftAt;
+    [SyncVar] double stunUntil;
+    Vector3 iceVelocity;
+    public bool IsStunned => NetworkTime.time < stunUntil;
     float jumpCooldownTimer, jumpSlowTimer, vertSpeed;
     bool isJumping;
     CharacterController controller;
     Health health;
     Vector3 externalVelocity, dashVelocity;
     float dashRemaining;
-    Transform visualRoot;
-    Vector3 visualRestPosition, correctionOffset, previousTickPosition;
+    Vector3 correctionOffset, previousTickPosition;
     bool hasPreviousTick;
 
     public Camera ViewCamera => playerCamera;
@@ -79,9 +96,7 @@ public class RelativeMovement : NetworkBehaviour
         controller = GetComponent<CharacterController>();
         health = GetComponent<Health>();
         vertSpeed = minFall;
-        var appearance = GetComponent<WizardAppearance>();
-        visualRoot = appearance != null ? appearance.visualRoot : null;
-        if (visualRoot != null) visualRestPosition = visualRoot.localPosition;
+        stamina = maxStamina;
         SetLocalCamera(false);
     }
     void SetLocalCamera(bool active)
@@ -107,36 +122,37 @@ public class RelativeMovement : NetworkBehaviour
     {
         if (!isLocalPlayer) return;
         correctionOffset = Vector3.Lerp(correctionOffset, Vector3.zero, 1 - Mathf.Exp(-18 * Time.deltaTime));
-        bool blocked = PlayerGameUI.InputBlocked || (health != null && health.IsDead);
-        Vector3 forward = playerCamera != null
-            ? Vector3.ProjectOnPlane(playerCamera.transform.forward, Vector3.up).normalized : transform.forward;
-        Vector3 right = playerCamera != null
-            ? Vector3.ProjectOnPlane(playerCamera.transform.right, Vector3.up).normalized : transform.right;
-        sampledInput = new MoveInput
-        {
-            forward = forward,
-            movement = blocked ? Vector3.zero : (right * Input.GetAxis("Horizontal") + forward * Input.GetAxis("Vertical")).normalized,
-            sprint = !blocked && Input.GetKey(KeyCode.LeftShift),
-            blocked = blocked
-        };
+        sampledInput = ReadMovementInput();
+        bool blocked = sampledInput.blocked;
         if (blocked) jumpQueued = false;
         else jumpQueued |= Input.GetButtonDown("Jump");
         PlanarInputDirection = sampledInput.movement;
         cameraShake?.SetShaking(!blocked && ProbeGround() && PlanarInputDirection.sqrMagnitude > .1f,
-            moveSpeed * moveSpeed * (sampledInput.sprint ? 2.25f : 1) * slowMultiplier * slowMultiplier);
+            moveSpeed * moveSpeed * (sprinting ? sprintMultiplier * sprintMultiplier : 1) * slowMultiplier * slowMultiplier);
     }
-    void LateUpdate()
+    // читаем несглаженные оси: отпускание клавиши сразу даёт нулевое направление.
+    MoveInput ReadMovementInput()
     {
-        if (isLocalPlayer && visualRoot != null)
-            visualRoot.localPosition = visualRestPosition + visualRoot.parent.InverseTransformVector(PresentationOffset);
+        bool blocked = PlayerGameUI.InputBlocked || IsStunned || (health != null && health.IsDead);
+        Vector3 forward = playerCamera != null
+            ? Vector3.ProjectOnPlane(playerCamera.transform.forward, Vector3.up).normalized : transform.forward;
+        Vector3 right = playerCamera != null
+            ? Vector3.ProjectOnPlane(playerCamera.transform.right, Vector3.up).normalized : transform.right;
+        return new MoveInput
+        {
+            forward = forward,
+            movement = blocked ? Vector3.zero : (right * Input.GetAxisRaw("Horizontal") + forward * Input.GetAxisRaw("Vertical")).normalized,
+            sprint = !blocked && Input.GetKey(KeyCode.LeftShift),
+            blocked = blocked
+        };
     }
-
     void FixedUpdate()
     {
         if (isLocalPlayer) { previousTickPosition = transform.position; hasPreviousTick = true; }
         if (isLocalPlayer && (isServer || clientEpoch != 0))
         {
-            MoveInput input = sampledInput;
+            // обновляем ввод перед физическим шагом, не дожидаясь следующего Update.
+            MoveInput input = ReadMovementInput();
             input.epoch = isServer ? serverEpoch : clientEpoch;
             input.sequence = ++clientSequence;
             input.jump = jumpQueued;
@@ -182,6 +198,14 @@ public class RelativeMovement : NetworkBehaviour
         if (serverInputs.Count > 0)
         {
             input = serverInputs.Dequeue();
+            // используем последнее состояние кнопок без доигрывания устаревшей ходьбы.
+            // короткий запрос прыжка сохраняем, даже если следом пришло отпускание.
+            while (serverInputs.Count > 0)
+            {
+                MoveInput latest = serverInputs.Dequeue();
+                latest.jump |= input.jump;
+                input = latest;
+            }
             lastProcessed = input.sequence;
             lastServerInput = input;
         }
@@ -203,8 +227,12 @@ public class RelativeMovement : NetworkBehaviour
     // общий расчёт для серверного шага и повтора ещё не подтверждённого ввода.
     void Simulate(MoveInput input, float dt, double simulationTime)
     {
-        if (!controller.enabled || (health != null && health.IsDead)) return;
-        if (simulationTime >= slowUntil) slowMultiplier = 1;
+        if (!controller.enabled || (health != null && health.IsDead)) { sprinting = false; return; }
+        bool stunned = simulationTime < stunUntil;
+        if (stunned) { input.blocked = true; input.jump = false; dashRemaining = 0; iceVelocity = Vector3.zero; }
+        slowMultiplier = SpellControlRules.SlowMultiplier(slows, simulationTime);
+        if (slowMultiplier == 1 && slows.Length > 0)
+            slows = System.Array.Empty<SpellControlRules.TimedSlow>();
         jumpCooldownTimer = Mathf.Max(0, jumpCooldownTimer - dt);
         jumpSlowTimer = Mathf.Max(0, jumpSlowTimer - dt);
         bool grounded = vertSpeed <= 0 && ProbeGround();
@@ -225,10 +253,22 @@ public class RelativeMovement : NetworkBehaviour
             vertSpeed = Mathf.Max(terminalVelocity, vertSpeed + gravity * (vertSpeed < 0 ? fallGravityMultiplier : 5) * dt);
         Vector3 movement = input.blocked ? Vector3.zero : Vector3.ClampMagnitude(input.movement, 1);
         float multiplier = slowMultiplier;
-        if (!input.blocked && input.sprint) multiplier *= 1.5f;
+        // сервер и предсказание одинаково ограничивают ускорение доступным запасом стамины.
+        bool wantsSprint = !input.blocked && input.sprint && movement.sqrMagnitude > .001f;
+        float sprintFraction = wantsSprint ? Mathf.Clamp01(stamina / Mathf.Max(.0001f, sprintDrainPerSecond * dt)) : 0;
+        sprinting = sprintFraction > 0;
+        multiplier *= Mathf.Lerp(1, sprintMultiplier, sprintFraction);
+        Vector3 positionBeforeMove = transform.position;
         if (isJumping) multiplier *= speedMultiplier;
         if (jumpSlowTimer > 0) multiplier *= speedMultiplier;
         movement *= moveSpeed * multiplier;
+        // плавный разгон и торможение действуют на льду одинаково на сервере и клиенте.
+        if (grounded && !stunned && OnIceBridge())
+        {
+            iceVelocity = Vector3.Lerp(iceVelocity, movement, 1 - Mathf.Exp(-2.5f * dt));
+            movement = iceVelocity;
+        }
+        else iceVelocity = Vector3.ProjectOnPlane(movement, Vector3.up);
         if (!input.blocked && input.forward.sqrMagnitude > .01f)
             transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(input.forward), 1 - Mathf.Exp(-rotSpeed * dt));
         movement.y = vertSpeed;
@@ -236,6 +276,14 @@ public class RelativeMovement : NetworkBehaviour
         float dashStep = Mathf.Min(dt, dashRemaining);
         dashRemaining = Mathf.Max(0, dashRemaining - dt);
         controller.Move((movement + externalVelocity) * dt + dashVelocity * dashStep);
+        Vector3 displacement = Vector3.ProjectOnPlane(transform.position - positionBeforeMove, Vector3.up);
+        // упор в стену не расходует запас; ходьба, прыжок, рывок и отталкивание не восстанавливают его.
+        bool moved = displacement.sqrMagnitude > .000001f;
+        if (sprinting && moved) stamina = Mathf.Max(0, stamina - sprintDrainPerSecond * dt * sprintFraction);
+        else if (grounded && !jumped && input.movement.sqrMagnitude < .001f && !moved &&
+            dashStep <= 0 && externalVelocity.sqrMagnitude < .01f)
+            stamina = Mathf.Min(maxStamina, stamina + staminaRecoveryPerSecond * dt);
+        sprinting &= moved;
     }
 
     MotorState CaptureState() => new MotorState
@@ -245,7 +293,9 @@ public class RelativeMovement : NetworkBehaviour
         verticalSpeed = vertSpeed, externalVelocity = externalVelocity,
         dashVelocity = dashVelocity, dashRemaining = dashRemaining,
         jumpCooldown = jumpCooldownTimer, jumpSlow = jumpSlowTimer, jumping = isJumping,
-        slowMultiplier = slowMultiplier, slowUntil = slowUntil, simulationTime = NetworkTime.time,
+        slowMultiplier = slowMultiplier, slows = slows, simulationTime = NetworkTime.time,
+        stamina = stamina, sprinting = sprinting,
+        stunUntil = stunUntil, iceVelocity = iceVelocity,
         dead = health != null && health.IsDead
     };
 
@@ -279,7 +329,11 @@ public class RelativeMovement : NetworkBehaviour
         jumpSlowTimer = state.jumpSlow;
         isJumping = state.jumping;
         slowMultiplier = state.slowMultiplier;
-        slowUntil = state.slowUntil;
+        slows = state.slows ?? System.Array.Empty<SpellControlRules.TimedSlow>();
+        stamina = Mathf.Clamp(state.stamina, 0, maxStamina);
+        sprinting = state.sprinting;
+        stunUntil = state.stunUntil;
+        iceVelocity = state.iceVelocity;
         if (!state.dead)
             for (int i = 0; i < pendingInputs.Count; i++)
                 Simulate(pendingInputs[i], Time.fixedDeltaTime, state.simulationTime + (i + 1) * Time.fixedDeltaTime);
@@ -317,16 +371,37 @@ public class RelativeMovement : NetworkBehaviour
         if (Finite(force) && (health == null || !health.IsDead)) externalVelocity += force;
     }
     [Server] public void ServerAddExternalForce(Vector3 force) => AddExternalForce(force);
+    // оглушение запрещает ввод и рывок, но сохраняет гравитацию и внешнее отталкивание.
+    [Server] public void ServerStun(float duration)
+    {
+        if (health != null && health.IsDead) return;
+        stunUntil = System.Math.Max(stunUntil, NetworkTime.time + Mathf.Clamp(duration, 0, 5));
+        dashRemaining = 0;
+    }
+
+    private bool OnIceBridge()
+    {
+        Vector3 feet = transform.TransformPoint(controller.center) - Vector3.up * controller.height * transform.lossyScale.y * .5f;
+        return Physics.Raycast(feet + Vector3.up * .15f, Vector3.down, out var hit, .35f,
+            Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore) && hit.collider.GetComponent<IceBridgeSurface>() != null;
+    }
+    // горизонтальное движение области сохраняется; повторный подброс имеет общий срок для всех областей.
+    [Server] public void ServerAddPeriodicForce(Vector3 force)
+    {
+        if (!Finite(force) || (health != null && health.IsDead)) return;
+        AddExternalForce(SpellControlRules.LimitPeriodicLift(force, NetworkTime.time, ref nextPeriodicLiftAt));
+    }
     [Server] public void ServerDash(Vector3 direction)
     {
-        if (!Finite(direction) || (health != null && health.IsDead)) return;
+        if (!Finite(direction) || IsStunned || (health != null && health.IsDead)) return;
         dashVelocity = Vector3.ProjectOnPlane(direction, Vector3.up).normalized * 24;
         dashRemaining = .22f;
     }
     [Server] public void ApplySlow(float multiplier, float duration)
     {
-        slowMultiplier = Mathf.Min(slowMultiplier, Mathf.Clamp(multiplier, .2f, 1));
-        slowUntil = System.Math.Max(slowUntil, NetworkTime.time + duration);
+        if (health != null && health.IsDead) return;
+        slows = SpellControlRules.AddSlow(slows, multiplier, duration, NetworkTime.time);
+        slowMultiplier = SpellControlRules.SlowMultiplier(slows, NetworkTime.time);
     }
     void OnControllerColliderHit(ControllerColliderHit hit)
     {
@@ -356,7 +431,12 @@ public class RelativeMovement : NetworkBehaviour
         if (isServer)
         {
             slowMultiplier = 1;
-            slowUntil = 0;
+            slows = System.Array.Empty<SpellControlRules.TimedSlow>();
+            nextPeriodicLiftAt = 0;
+            stunUntil = 0;
+            iceVelocity = Vector3.zero;
+            stamina = maxStamina;
+            sprinting = false;
             serverEpoch++;
             lastReceived = lastProcessed = 0;
             clientSequence = 0;

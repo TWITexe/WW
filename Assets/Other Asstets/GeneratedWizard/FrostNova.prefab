@@ -155,6 +155,7 @@ MonoBehaviour:
   syncInterval: 0
   definition: {fileID: 11400000, guid: a1eef404d6ade8049981f5bbce5eeae7, type: 2}
   ownerId: 0
+  bornAt: 0
 --- !u!120 &1177900329203407853
 LineRenderer:
   serializedVersion: 2

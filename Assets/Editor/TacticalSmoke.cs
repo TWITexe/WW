@@ -25,7 +25,7 @@ public static class TacticalSmoke
     // задаём закрытое поле тестируемого компонента без добавления игрового публичного метода.
     static void Set(object obj,string name,object value)=>obj.GetType().GetField(name,Private).SetValue(obj,value);
     // загружаем ассет тактического заклинания по его имени файла.
-    static TacticalSpell Spell(string id)=>AssetDatabase.LoadAssetAtPath<TacticalSpell>("Assets/TacticalSpells/"+id+".asset");
+    static TacticalSpell Spell(string id)=>AssetDatabase.LoadAssetAtPath<TacticalSpell>("Assets/Scripts/Spells/Tactical/"+id+".asset");
     // создаём серверный эффект с заданным владельцем и публикуем его через Mirror.
     static TacticalEffect Spawn(string id,uint owner,Vector3 pos){var go=Object.Instantiate(Spell(id).effectPrefab,pos,Quaternion.identity);var effect=go.GetComponent<TacticalEffect>();effect.ownerId=owner;NetworkServer.Spawn(go);return effect;}
     // подготавливаем тестовую сцену и включаем сценарий тактических проверок.
@@ -60,7 +60,7 @@ public static class TacticalSmoke
                 var history=(List<MagicElement>)Field(caster,"serverInput");history.Add(MagicElement.Fire);Set(caster,"lastInputTime",NetworkTime.time-2.01);caster.SendMessage("Update");Check(history.Count==0,"Server input expires");
                 movement.ResetVerticalVelocity();
                 var wall=Spawn("StoneWall",player.netId,arena+Vector3.forward*4);Check(!wall.GetComponent<Collider>().isTrigger,"Wall solid");NetworkServer.Destroy(wall.gameObject);
-                foreach(string path in new[]{"Assets/Prefabs/FireBall.prefab","Assets/Prefabs/WindFlow.prefab","Assets/GeneratedWizard/WaterBolt.prefab"})
+                foreach(string path in new[]{"Assets/Prefabs/FireBall.prefab","Assets/Prefabs/WindFlow.prefab","Assets/Other Asstets/GeneratedWizard/WaterBolt.prefab"})
                 {
                     var mirror=Spawn("IceMirror",player.netId,arena+Vector3.forward*2);var shot=Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>(path),arena+new Vector3(0,1,3),Quaternion.identity);
                     var fire=shot.GetComponent<FireballProjectile>();var wind=shot.GetComponent<WindFlowProjectile>();var elemental=shot.GetComponent<ElementalEffect>();

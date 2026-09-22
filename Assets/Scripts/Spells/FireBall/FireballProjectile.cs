@@ -9,6 +9,7 @@ public class FireballProjectile : NetworkBehaviour
     private double expiresAt;
     private bool consumed;
     private Vector3 previous;
+    [SyncVar(hook = nameof(OnLensAmplified))] private bool lensAmplified;
     [SyncVar] public uint ownerId;
     // задаём срок жизни и исходную точку для проверки всего пути снаряда.
     public override void OnStartServer() { expiresAt = NetworkTime.time + lifetime;previous=transform.position; }
@@ -16,12 +17,14 @@ public class FireballProjectile : NetworkBehaviour
     public override void OnStartClient()
     {
         if (!isServer) GetComponent<Rigidbody>().isKinematic = true;
+        if (lensAmplified) LensProjectileGlow.Show(gameObject);
     }
     // проверяем пройденный путь на сервере и удаляем снаряд по таймеру.
     private void Update()
     {
         if(!isServer||consumed)return;
         if (ProjectileContact.Sweep(transform, ownerId, previous, out var hit, out var point)) Impact(hit, point);
+        else TryLens(transform.position);
         previous=transform.position;
         if (!consumed&&NetworkTime.time >= expiresAt) NetworkServer.Destroy(gameObject);
     }
@@ -36,16 +39,28 @@ public class FireballProjectile : NetworkBehaviour
     private void Impact(Collider other, Vector3 point)
     {
         if (!isServer || consumed || !ProjectileContact.CanHit(other,transform,ownerId)) return;
+        TryLens(point);
         if (TacticalEffect.TryReflect(other,transform,ownerId,out uint reflected)) { ownerId=reflected;previous=transform.position;return; }
         other.GetComponentInParent<TacticalEffect>()?.ProjectileHit(ownerId);
         consumed = true;
+        ArenaDestructible.Hit(other, point, fireballDamage + (lensAmplified ? SteamLens.BonusDamage : 0));
         Health health = other.GetComponentInParent<Health>();
-        if (health != null) health.TakeSpellDamage(fireballDamage, ownerId, SpellDamage.IsHeadshot(health, other.ClosestPoint(transform.position)));
+        if (health != null) health.TakeSpellDamage(fireballDamage + (lensAmplified ? SteamLens.BonusDamage : 0), ownerId, SpellDamage.IsHeadshot(health, other, other.ClosestPoint(transform.position)));
         // хост воспроизводит эффект сразу: после уничтожения снаряда его rpc уже не найдёт объект.
         if (NetworkClient.active) ShowImpact(point);
         RpcImpact(point);
         NetworkServer.Destroy(gameObject);
     }
+    // усиливаем экземпляр снаряда, не меняя общий ассет или урон следующих выстрелов.
+    private void TryLens(Vector3 end)
+    {
+        if (!lensAmplified) lensAmplified = SteamLens.TryAmplify(ownerId, previous, end, GetComponent<Rigidbody>());
+    }
+    private void OnLensAmplified(bool previousValue, bool value)
+    {
+        if (value && isClient) LensProjectileGlow.Show(gameObject);
+    }
+
     // показываем клиентам огненную вспышку в точке столкновения.
     [ClientRpc] private void RpcImpact(Vector3 position)
     {

@@ -46,6 +46,8 @@ public class Health : NetworkBehaviour
 
     public int CurrentHealth => currentHealth;
     public int MaxHealth => maxHealth;
+    // учитываем поглощённые щитом попадания, чтобы источник не лечил под обстрелом.
+    public uint DamageVersion { get; private set; }
 
     public event System.Action<int, int> OnHealthChangedEvent;
 
@@ -80,6 +82,7 @@ public class Health : NetworkBehaviour
             return;
 
         damage = Mathf.Max(0, damage);
+        if (damage > 0) DamageVersion++;
         if (damage > 0) RecordAttacker(attackerId);
         if (NetworkTime.time >= shieldUntil) shield = 0;
         int absorbed = Mathf.Min(shield, damage);
@@ -109,11 +112,11 @@ public class Health : NetworkBehaviour
     {
         TakeDamage(SpellDamage.Roll(baseDamage,headshot,Random.value),attackerId,headshot);
     }
-    // клиенты показывают число потерянного здоровья; над своим персонажем цифру не создаём.
+    // показываем цифры урона по другим персонажам, скрывая входящий урон от самого пострадавшего.
     [ClientRpc]
     private void RpcDamageNumber(int amount,bool headshot,Vector3 position)
     {
-        if(isLocalPlayer)return;
+        if (isLocalPlayer) return;
         var prefab=Resources.Load<FloatingDamageNumber>("DamageNumber");
         if(prefab==null)return;
         var number=Instantiate(prefab,position+Vector3.right*Random.Range(-.2f,.2f),Quaternion.identity);
@@ -144,9 +147,16 @@ public class Health : NetworkBehaviour
         isDead = true;
         GetComponent<RelativeMovement>()?.ResetVerticalVelocity();
         GetComponent<PlayerStats>()?.AddDeath();
+        var victimStats = GetComponent<PlayerStats>();
+        PlayerStats killerStats = null;
         if (lastAttacker != 0 && NetworkTime.time - lastAttackTime <= 8 &&
             NetworkServer.spawned.TryGetValue(lastAttacker, out var attacker))
-            attacker.GetComponentInChildren<PlayerStats>()?.AddKill();
+        {
+            killerStats = attacker.GetComponentInChildren<PlayerStats>();
+            killerStats?.AddKill();
+        }
+        RpcKillFeed(killerStats != null ? killerStats.DisplayName : "Окружение", victimStats != null ? victimStats.DisplayName : "Player",
+            killerStats != null ? killerStats.DisplayColor : Color.gray, victimStats != null ? victimStats.DisplayColor : Color.white);
         lastAttacker = 0;
         shield = 0;
         currentHealth = 0;
@@ -154,6 +164,10 @@ public class Health : NetworkBehaviour
         // запускаем респавн только на сервере
         StartCoroutine(RespawnRoutine());
     }
+
+    // запись отправляет сервер один раз при смерти, поэтому у всех клиентов совпадает журнал убийств.
+    [ClientRpc] private void RpcKillFeed(string killer, string victim, Color killerColor, Color victimColor)
+        => MatchKillFeed.Add(killer, victim, killerColor, victimColor);
 
     // отложенное возрождение и перенос обеих копий персонажа.
     // через три секунды восстанавливаем здоровье и выполняем серверный перенос.

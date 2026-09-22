@@ -28,11 +28,42 @@ public static class MenuShelfInspection
         File.Delete(RequestPath);
         try
         {
-            if (request == "validate-spells") EditorApplication.ExecuteMenuItem("Tools/Wizard War/Validate spell system");
+            if (request == "saved-builds") SavedElementBuildInstaller.Install();
+            else if (request == "validate-saved-builds") SavedElementBuildInstaller.Validate();
+            else if (request == "preview-saved-builds") SavedElementBuildInstaller.Preview();
+            else if (request == "smoke-saved-builds") SavedElementBuildSmoke.Run();
+            else if (request == "playtest-fixes") EditorApplication.ExecuteMenuItem("Tools/Wizard War/Apply spell playtest fixes");
+            else if (request == "check-advanced") EditorApplication.ExecuteMenuItem("Tools/Wizard War/Check advanced mechanics");
+            else if (request == "preview-advanced") EditorApplication.ExecuteMenuItem("Tools/Wizard War/Preview advanced spells");
+            else if (request == "advanced-spells") EditorApplication.ExecuteMenuItem("Tools/Wizard War/Install advanced spells");
+            else if (request == "validate-advanced") EditorApplication.ExecuteMenuItem("Tools/Wizard War/Validate advanced spells");
+            else if (request == "spell-mechanics") EditorApplication.ExecuteMenuItem("Tools/Wizard War/Validate spell mechanics");
+            else if (request == "balance-v1") EditorApplication.ExecuteMenuItem("Tools/Wizard War/Apply spell balance v1");
+            else if (request == "hint-prefabs") EditorApplication.ExecuteMenuItem("Tools/Wizard War/Install highlight prefabs");
+            else if (request == "preview-hints") EditorApplication.ExecuteMenuItem("Tools/Wizard War/Preview interaction hints");
+            else if (request == "validate-spells") EditorApplication.ExecuteMenuItem("Tools/Wizard War/Validate spell system");
             else if (request == "taller-tornado") EditorApplication.ExecuteMenuItem("Tools/Wizard War/Enlarge fire tornado");
             else if (request == "impact-regression") EditorApplication.ExecuteMenuItem("Tools/Wizard War/Validate environment impacts");
             else if (request == "area-hits") EditorApplication.ExecuteMenuItem("Tools/Wizard War/Install area and hit effects");
             else if (request == "validate-area-hits") EditorApplication.ExecuteMenuItem("Tools/Wizard War/Validate area and hit effects");
+            else if (request == "arena-inspect") EditorApplication.ExecuteMenuItem("Tools/Wizard War/Inspect arena");
+            else if (request == "arena-build") EditorApplication.ExecuteMenuItem("Tools/Wizard War/Build ruined island");
+            else if (request == "arena-check") EditorApplication.ExecuteMenuItem("Tools/Wizard War/Check ruined island");
+            else if (request == "arena-polish") RuinedIslandBuilder.Polish();
+            else if (request == "gameplay-inspect") GameplayRevisionBuilder.Inspect();
+            else if (request == "cooldown-style") CooldownStyleEditor.Apply();
+            else if (request == "cooldown-staff-check") CooldownStaffRegression.Run();
+            else if (request == "spell-followup") SpellFollowupEditor.Apply();
+            else if (request == "check-spell-followup") SpellFollowupEditor.Check();
+            else if (request == "gameplay-graphics") GameplayRevisionBuilder.InspectGraphics();
+            else if (request == "gameplay-apply") GameplayRevisionBuilder.Apply();
+            else if (request == "gameplay-check") GameplayRevisionRegression.Run();
+            else if (request == "gameplay-polish") GameplayRevisionPreview.PolishAndRender();
+            else if (request == "gameplay-save")
+            {
+                UnityEditor.SceneManagement.EditorSceneManager.SaveScene(SceneManager.GetSceneByPath("Assets/Scenes/Menu.unity"));
+                GameplayRevisionBuilder.Inspect();
+            }
             else if (request == "inspect") Inspect();
             else if (request == "refresh") AssetDatabase.Refresh();
             else if (request == "optimize") EditorApplication.ExecuteMenuItem("Tools/Wizard War/Optimize menu lighting");

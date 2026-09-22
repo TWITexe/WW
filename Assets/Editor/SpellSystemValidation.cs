@@ -35,7 +35,7 @@ public static class SpellSystemValidation
         check(fire != null && wind != null, "spell assets load");
         check(fire.IsAvailable(loadout) && !wind.IsAvailable(loadout), "wind now requires earth");
         check(loadout.KeysFor(fire.Recipe) == "Q → Q → Q", "default fire keys");
-                var dash = AssetDatabase.LoadAssetAtPath<TacticalSpell>("Assets/TacticalSpells/SteamDash.asset");
+                var dash = AssetDatabase.LoadAssetAtPath<TacticalSpell>("Assets/Scripts/Spells/Tactical/SteamDash.asset");
         check(dash.MatchesCombo(new[] { MagicElement.Air, MagicElement.Air, MagicElement.Air }), "triple air resolves dash");
         var earthAir = new ElementLoadout { q = MagicElement.Earth, e = MagicElement.Air, r = MagicElement.Ice };
         check(wind.MatchesCombo(new[] { MagicElement.Earth, MagicElement.Air, MagicElement.Air }), "ordered earth-air-air resolves wind");

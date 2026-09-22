@@ -8,6 +8,7 @@ public class PlayerColor : NetworkBehaviour
 
     [SyncVar(hook = nameof(OnColorChanged))]
     private PlayerColorId playerColorId = PlayerColorId.None;
+    public Color DisplayColor => PlayerColorManager.Instance != null ? PlayerColorManager.Instance.GetUnityColor(playerColorId) : Color.white;
 
     // отправляем серверу цвет, выбранный владельцем персонажа в меню.
     public override void OnStartLocalPlayer()

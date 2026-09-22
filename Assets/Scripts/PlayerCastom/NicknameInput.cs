@@ -12,6 +12,17 @@ public class NicknameInput : MonoBehaviour
         nicknameInput.text = LocalPlayerSettings.Instance.CosmeticSettings.nickname;
 
         nicknameInput.onValueChanged.AddListener(OnNicknameChanged);
+        nicknameInput.onEndEdit.AddListener(OnEditingFinished);
+    }
+
+    // завершаем запись при выходе из поля и снимаем подписки вместе с меню.
+    private void OnEditingFinished(string value) => LocalPlayerSettings.Instance?.SaveNickname();
+    private void OnDestroy()
+    {
+        if (nicknameInput == null) return;
+        nicknameInput.onValueChanged.RemoveListener(OnNicknameChanged);
+        nicknameInput.onEndEdit.RemoveListener(OnEditingFinished);
+        LocalPlayerSettings.Instance?.SaveNickname();
     }
 
     // сохраняем текст поля для последующей отправки серверу.

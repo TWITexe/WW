@@ -52,8 +52,8 @@ public static class AreaAndHitEffectsBuilder
     // длительность задаётся способностью; графика удаляется вместе с сетевой областью на всех клиентах.
     private static void InstallArea(string name, string sourceName, bool tornado)
     {
-        string path = "Assets/GeneratedWizard/" + name + ".prefab";
-        var spell = AssetDatabase.LoadAssetAtPath<ElementalSpell>("Assets/GeneratedWizard/" + name + ".asset");
+        string path = "Assets/Other Asstets/GeneratedWizard/" + name + ".prefab";
+        var spell = AssetDatabase.LoadAssetAtPath<ElementalSpell>("Assets/Scripts/Spells/Elemental/" + name + ".asset");
         Backup(path);
         GameObject root = PrefabUtility.LoadPrefabContents(path);
         try
@@ -174,7 +174,7 @@ public static class AreaAndHitEffectsBuilder
     // назначаем тип явно: смешанный рецепт не всегда определяет внешний вид способности.
     private static void AssignHits()
     {
-        foreach (string folder in new[] { "Assets/GeneratedWizard", "Assets/TacticalSpells" })
+        foreach (string folder in new[] { "Assets/Scripts/Spells/Elemental", "Assets/Scripts/Spells/Tactical" })
         foreach (string path in Directory.GetFiles(folder, "*.asset"))
         {
             var spell = AssetDatabase.LoadAssetAtPath<Spell>(path.Replace('\\', '/'));
@@ -234,7 +234,7 @@ public static class AreaAndHitEffectsBuilder
         var report = new StringBuilder();
         foreach (string name in new[] { "Blizzard", "FireTornado" })
         {
-            var spell = AssetDatabase.LoadAssetAtPath<ElementalSpell>("Assets/GeneratedWizard/" + name + ".asset");
+            var spell = AssetDatabase.LoadAssetAtPath<ElementalSpell>("Assets/Scripts/Spells/Elemental/" + name + ".asset");
             if (spell.effectPrefab.GetComponent<NetworkIdentity>() == null) throw new InvalidOperationException("Missing network root.");
             var systems = spell.effectPrefab.GetComponentsInChildren<ParticleSystem>();
             if (systems.Length == 0 || systems.Any(p => !p.main.loop || p.lights.enabled)) throw new InvalidOperationException("Invalid area particles.");

@@ -68,8 +68,8 @@ public static class ArenaLightingPreset
         volume.isGlobal = true; volume.weight = 1; volume.sharedProfile = profile;
         foreach (string name in new[] { "FireTornado", "Magma", "BoilingJet" })
         {
-            Glow(AssetDatabase.LoadAssetAtPath<Material>("Assets/GeneratedWizard/" + name + ".mat"), 2.5f);
-            Glow(AssetDatabase.LoadAssetAtPath<Material>("Assets/GeneratedWizard/" + name + "Particles.mat"), 2f);
+            Glow(AssetDatabase.LoadAssetAtPath<Material>("Assets/Other Asstets/GeneratedWizard/" + name + ".mat"), 2.5f);
+            Glow(AssetDatabase.LoadAssetAtPath<Material>("Assets/Other Asstets/GeneratedWizard/" + name + "Particles.mat"), 2f);
         }
         const string fireballPath = "Assets/Prefabs/FireBall.prefab";
         // создаём локальные копии материалов фаерболла, сохраняя исходные материалы импортированных ресурсов.
@@ -126,7 +126,7 @@ public static class ArenaLightingPreset
     // задаём металлический блеск и гладкость выбранного материала мага.
     static void Polish(string name, float metal, float smooth)
     {
-        var material = AssetDatabase.LoadAssetAtPath<Material>("Assets/GeneratedWizard/" + name + ".mat");
+        var material = AssetDatabase.LoadAssetAtPath<Material>("Assets/Other Asstets/GeneratedWizard/" + name + ".mat");
         if (material == null) return;
         if (material.HasProperty("_Metallic")) material.SetFloat("_Metallic", metal);
         if (material.HasProperty("_Smoothness")) material.SetFloat("_Smoothness", smooth);

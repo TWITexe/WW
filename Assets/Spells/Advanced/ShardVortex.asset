@@ -1,0 +1,46 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6f89fae8cda5a5c4b9b94bbbc5372d99, type: 3}
+  m_Name: ShardVortex
+  m_EditorClassIdentifier: 
+  hitEffect: 0
+  displayName: "\u041E\u0441\u043A\u043E\u043B\u043E\u0447\u043D\u0430\u044F \u0432\u043E\u0440\u043E\u043D\u043A\u0430"
+  description: "\u0417\u0430\u043C\u0435\u0434\u043B\u044F\u044E\u0449\u0430\u044F
+    \u0432\u043E\u0440\u043E\u043D\u043A\u0430 \u0440\u0430\u0434\u0438\u0443\u0441\u043E\u043C
+    3 \u043C. \u041F\u043E\u0441\u043B\u0435 \u043F\u043E\u0434\u0433\u043E\u0442\u043E\u0432\u043A\u0438
+    1,5 \u0441 \u0434\u0432\u0430 \u0432\u0437\u0440\u044B\u0432\u0430 \u043D\u0430\u043D\u043E\u0441\u044F\u0442
+    \u043F\u043E 25 \u0431\u0430\u0437\u043E\u0432\u043E\u0433\u043E \u0443\u0440\u043E\u043D\u0430:
+    \u0447\u0435\u0440\u0435\u0437 0,2 \u0438 1 \u0441. \u041A\u0430\u0436\u0434\u044B\u0439
+    \u0437\u0430\u043C\u0435\u0434\u043B\u044F\u0435\u0442 \u043D\u0430 35% \u043D\u0430
+    2 \u0441."
+  recipe: 000000000100000002000000
+  cooldown: 13
+  kind: 0
+  effectPrefab: {fileID: 1452662202745061189, guid: ff0c1ee5c696fad4e917b6f8c093c778, type: 3}
+  tint: {r: 0.9, g: 0.22, b: 0.2, a: 1}
+  radius: 3
+  delay: 1.5
+  duration: 1.2
+  tickInterval: 1
+  impactDamage: 25
+  tickDamage: 0
+  healPerTick: 0
+  slow: 0.65
+  slowDuration: 2
+  stunDuration: 0
+  projectileSpeed: 14
+  projectileGravity: 9
+  impactDelay: 0
+  impactOffsets:
+  - 0.2
+  - 1
+  bridgeSize: {x: 3, y: 0.2, z: 10}

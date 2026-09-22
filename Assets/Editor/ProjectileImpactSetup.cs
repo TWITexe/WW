@@ -20,7 +20,7 @@ public static class ProjectileImpactSetup
             var fade=particles.colorOverLifetime;fade.enabled=true;
             var gradient=new Gradient();gradient.SetKeys(new[]{new GradientColorKey(Color.white,0),new GradientColorKey(Color.white,1)},new[]{new GradientAlphaKey(1,0),new GradientAlphaKey(.8f,.3f),new GradientAlphaKey(0,1)});fade.color=gradient;
             var shrink=particles.sizeOverLifetime;shrink.enabled=true;shrink.size=new ParticleSystem.MinMaxCurve(1,AnimationCurve.Linear(0,1,1,0));
-            var renderer=particles.GetComponent<ParticleSystemRenderer>();renderer.sharedMaterial=AssetDatabase.LoadAssetAtPath<Material>("Assets/GeneratedWizard/ReadableSpellParticles.mat");renderer.renderMode=ParticleSystemRenderMode.Billboard;
+            var renderer=particles.GetComponent<ParticleSystemRenderer>();renderer.sharedMaterial=AssetDatabase.LoadAssetAtPath<Material>("Assets/Other Asstets/GeneratedWizard/ReadableSpellParticles.mat");renderer.renderMode=ParticleSystemRenderMode.Billboard;
             if(renderer.sharedMaterial==null||go.GetComponent<Collider>()!=null)throw new Exception("Invalid impact visual");
             PrefabUtility.SaveAsPrefabAsset(go,"Assets/Resources/SpellProjectileImpact.prefab");
             AssetDatabase.SaveAssets();Debug.Log("PROJECTILE_IMPACT_SETUP_PASSED");

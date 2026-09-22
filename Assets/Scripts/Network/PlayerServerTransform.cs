@@ -21,6 +21,8 @@ public class PlayerServerTransform : NetworkTransformReliable
         if (!isOwned) base.OnServerToClientSync(position, rotation, scale);
     }
 
+    protected override void OnTeleport(Vector3 destination) => OnTeleport(destination, target.rotation);
+
     protected override void OnTeleport(Vector3 destination, Quaternion rotation)
     {
         // состояния владельца содержат номер жизни, поэтому старый пакет не отменит респавн.
@@ -28,7 +30,14 @@ public class PlayerServerTransform : NetworkTransformReliable
         var controller = GetComponent<CharacterController>();
         bool enabledBefore = controller != null && controller.enabled;
         if (controller != null) controller.enabled = false;
-        base.OnTeleport(destination, rotation);
+        // NetworkTransformBase.OnTeleport вызывает виртуальный ResetState, который
+        // у Reliable обнуляет базы дельта-сжатия. Повторный RPC на хосте может
+        // сбросить базу уже после отправки снимка: наблюдатели получат постоянное
+        // смещение координат. При переносе очищаем только историю интерполяции.
+        target.SetPositionAndRotation(destination, rotation);
+        serverSnapshots.Clear();
+        clientSnapshots.Clear();
+        Physics.SyncTransforms();
         if (controller != null) controller.enabled = enabledBefore;
     }
 }
