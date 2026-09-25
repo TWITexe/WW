@@ -13,6 +13,8 @@ public partial class PlayerNetworkCaster : NetworkBehaviour
     private Health health;
     private RelativeMovement movementController;
     private WizardAppearance appearance;
+    private PlayerUltimate ultimate;
+    public bool UltimateBlocksSpells => ultimate != null && ultimate.BlocksSpells;
     private readonly List<MagicElement> serverInput = new List<MagicElement>(3);
     private readonly Dictionary<Spell, double> serverCooldowns = new Dictionary<Spell, double>();
     private readonly Dictionary<Spell, double> clientCooldowns = new Dictionary<Spell, double>();
@@ -44,6 +46,7 @@ public partial class PlayerNetworkCaster : NetworkBehaviour
         health = GetComponent<Health>();
         movementController = GetComponent<RelativeMovement>();
         appearance = GetComponent<WizardAppearance>();
+        ultimate = GetComponent<PlayerUltimate>();
     }
     // отправляем серверу выбранный перед матчем набор стихий либо стандартный набор.
     public override void OnStartLocalPlayer()
@@ -57,13 +60,13 @@ public partial class PlayerNetworkCaster : NetworkBehaviour
     {
         // фиксируем набор на всю сетевую жизнь персонажа, включая возрождения.
         if (loadoutReady) return;
-        loadout = requested.IsValid ? requested : ElementLoadout.Default;
+        loadout = ShopCatalog.Allows(NetManager.Room?.RoomAuth.ProfileFor(connectionToClient), requested) ? requested : ElementLoadout.Default;
         loadoutReady = true;
     }
     // отправляем номер слота вместе с лучом прицела и направлением движения для рывка.
     public void SubmitElement(int slot)
     {
-        if (!isLocalPlayer || !loadoutReady || PlayerGameUI.InputBlocked || (movementController != null && movementController.IsStunned)) return;
+        if (!isLocalPlayer || !loadoutReady || PlayerGameUI.InputBlocked || UltimateBlocksSpells || (movementController != null && movementController.IsStunned)) return;
         if (playerCamera == null) return;
         CancelLocalAreaAim();
         Ray ray=playerCamera.ViewportPointToRay(new Vector3(.5f,.5f));
@@ -132,7 +135,7 @@ public partial class PlayerNetworkCaster : NetworkBehaviour
         try
         {
             // клиент передаёт намерение, а не готовое заклинание: сервер сам проверяет слот и допустимость прицела.
-            if (!loadoutReady || spells == null || slot < 0 || slot > 2 ||
+            if (!NetManager.CombatAllowed || UltimateBlocksSpells || !loadoutReady || spells == null || slot < 0 || slot > 2 ||
                 (health != null && health.IsDead) || (movementController != null && movementController.IsStunned) || !ValidDirection(viewDirection) ||
                 !Finite(viewOrigin) || !Finite(moveDirection) || moveDirection.sqrMagnitude > 1.1f || (viewOrigin-transform.position).sqrMagnitude>100)
             {
@@ -419,6 +422,7 @@ public partial class PlayerNetworkCaster : NetworkBehaviour
             foreach (Collider target in effect.GetComponentsInChildren<Collider>()) Physics.IgnoreCollision(source, target);
         NetworkServer.Spawn(effect);
         bool atPoint = spell.mode == ElementalCastMode.GroundZone;
+        if (spell.mode == ElementalCastMode.Bolt && spell.name == "IceShard") ultimate?.ServerRecordShot(spell.effectPrefab, spell.speed);
         appearance?.ServerPlayCast(WizardCastMotion.ForSpell(spell), atPoint ? position : direction, atPoint);
         return true;
     }
@@ -480,6 +484,7 @@ public partial class PlayerNetworkCaster : NetworkBehaviour
                 Physics.IgnoreCollision(source, target);
         var body=projectile.GetComponent<Rigidbody>();body.useGravity=false;body.linearDamping=0;body.linearVelocity = direction * speed;
         NetworkServer.Spawn(projectile);
+        if (fire != null) ultimate?.ServerRecordShot(prefab, speed);
         appearance?.ServerPlayCast(WizardCastGesture.Shot, direction, false);
         return true;
     }

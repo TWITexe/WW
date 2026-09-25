@@ -7,6 +7,7 @@ public static class SpellDamage
     public const float HeadMultiplier = 1.5f;
     public static bool IsHeadshot(Health target, Collider collider, Vector3 contact)
     {
+        if (target.GetComponent<PlayerUltimate>()?.HasForm == true) return false;
         var appearance = target.GetComponent<WizardAppearance>();
         return appearance != null && appearance.HasAnimatedHitboxes
             ? appearance.IsHeadCollider(collider) : IsHeadshot(target, contact);
@@ -20,6 +21,7 @@ public static class SpellDamage
     // проверяем высоту контакта относительно геометрии головы и шляпы.
     public static bool IsHeadshot(Health target, Vector3 contact)
     {
+        if (target.GetComponent<PlayerUltimate>()?.HasForm == true) return false;
         var appearance=target.GetComponent<WizardAppearance>();
         if(appearance==null||appearance.pieces==null)return false;
         foreach(var piece in appearance.pieces)

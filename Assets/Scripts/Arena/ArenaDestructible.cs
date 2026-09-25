@@ -38,6 +38,7 @@ public class ArenaDestructible : NetworkBehaviour
     public static void Hit(Collider target, Vector3 origin, int damage, float force = 7)
     {
         if (!NetworkServer.active || target == null) return;
+        target.GetComponent<UltimateMirror>()?.ReceiveDamage(damage);
         target.GetComponentInParent<ArenaDestructible>()?.Damage(origin, damage, force);
     }
 
@@ -45,6 +46,7 @@ public class ArenaDestructible : NetworkBehaviour
     public static void Blast(Vector3 origin, float radius, int damage, Transform source, float force = 8)
     {
         if (!NetworkServer.active || damage <= 0 || radius <= 0) return;
+        UltimateWorldEffect.BlastMirrors(origin, radius, damage, source);
         candidates.Clear();
         foreach (var item in active)
         {

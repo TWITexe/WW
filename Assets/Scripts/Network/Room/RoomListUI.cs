@@ -26,6 +26,10 @@ public class RoomListUI : MonoBehaviour
     // задаём адрес комнаты и порт транспорта KCP, после чего запускаем клиент.
     public void JoinRoom(RoomInfo room)
     {
+        if (NetworkClient.active || NetworkServer.active || RoomMigration.Active) return;
+        var menu = FindFirstObjectByType<MainMenuUI>();
+        if (menu != null) { menu.JoinRoom(room); return; }
+        if (room.isPrivate) return;
         NetworkManager.singleton.networkAddress = room.address;
 
         if (Transport.active is kcp2k.KcpTransport kcp)

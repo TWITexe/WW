@@ -173,7 +173,7 @@ public static class InteractiveShelfMenuBuilder
         }
         Text hint = Label(background, "Controls", "", new Vector2(28, -689), new Vector2(664, 60), 21, Ink);
         var catalog = root.GetComponent<ShelfSpellCatalogUI>();
-        catalog.Configure(title, hint, labels, buttons, scroll, cards);
+        catalog.Configure(labels, buttons, scroll, cards);
         foreach (Transform child in root.GetComponentsInChildren<Transform>(true)) child.gameObject.layer = 5;
         return catalog;
     }

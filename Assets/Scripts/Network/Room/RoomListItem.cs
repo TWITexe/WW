@@ -20,11 +20,13 @@ public class RoomListItem : MonoBehaviour
 
         roomNameText.richText = false;
         roomNameText.text = string.IsNullOrWhiteSpace(info.roomName) ? "Комната" : info.roomName;
+        if (info.isPrivate) roomNameText.text += " · Закрытая";
         playersText.text = $"{info.players}/{info.maxPlayers}";
         // адрес хранится в данных комнаты и используется при подключении, но не выводится отдельной подписью.
 
         joinButton.onClick.RemoveAllListeners();
         joinButton.onClick.AddListener(Join);
+        joinButton.interactable = info.players < info.maxPlayers;
     }
 
     // передаём выбранную комнату владельцу списка, который настроит и запустит подключение.

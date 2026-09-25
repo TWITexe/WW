@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Mirror;
 using UnityEngine;
 
-// собирает объявления комнат в локальной сети и передаёт их интерфейсу через общий договор.
+// СЃРѕР±РёСЂР°РµС‚ РѕР±СЉСЏРІР»РµРЅРёСЏ РєРѕРјРЅР°С‚ РІ Р»РѕРєР°Р»СЊРЅРѕР№ СЃРµС‚Рё Рё РїРµСЂРµРґР°С‘С‚ РёС… РёРЅС‚РµСЂС„РµР№СЃСѓ С‡РµСЂРµР· РѕР±С‰РёР№ РґРѕРіРѕРІРѕСЂ.
 public class LanRoomProvider : MonoBehaviour, IRoomProvider
 {
     [SerializeField] private RoomNetworkDiscovery discovery;
@@ -12,12 +12,12 @@ public class LanRoomProvider : MonoBehaviour, IRoomProvider
 
     private readonly Dictionary<long, RoomInfo> discoveredRooms = new();
 
-    // проверяем компонент поиска и подписываемся на найденные комнаты.
+    // РїСЂРѕРІРµСЂСЏРµРј РєРѕРјРїРѕРЅРµРЅС‚ РїРѕРёСЃРєР° Рё РїРѕРґРїРёСЃС‹РІР°РµРјСЃСЏ РЅР° РЅР°Р№РґРµРЅРЅС‹Рµ РєРѕРјРЅР°С‚С‹.
     private void Awake()
     {
         if (discovery == null)
         {
-            Debug.LogError("RoomNetworkDiscovery не назначен в инспекторе!");
+            Debug.LogError("RoomNetworkDiscovery РЅРµ РЅР°Р·РЅР°С‡РµРЅ РІ РёРЅСЃРїРµРєС‚РѕСЂРµ!");
             enabled = false;
             return;
         }
@@ -25,23 +25,23 @@ public class LanRoomProvider : MonoBehaviour, IRoomProvider
         discovery.OnRoomFound.AddListener(OnRoomFound);
     }
 
-    // снимаем подписку, чтобы уничтоженный источник не обрабатывал ответы поиска.
+    // СЃРЅРёРјР°РµРј РїРѕРґРїРёСЃРєСѓ, С‡С‚РѕР±С‹ СѓРЅРёС‡С‚РѕР¶РµРЅРЅС‹Р№ РёСЃС‚РѕС‡РЅРёРє РЅРµ РѕР±СЂР°Р±Р°С‚С‹РІР°Р» РѕС‚РІРµС‚С‹ РїРѕРёСЃРєР°.
     private void OnDestroy()
     {
         if (discovery != null)
             discovery.OnRoomFound.RemoveListener(OnRoomFound);
     }
 
-    // очищаем накопленные комнаты и запускаем поиск заново.
+    // РѕС‡РёС‰Р°РµРј РЅР°РєРѕРїР»РµРЅРЅС‹Рµ РєРѕРјРЅР°С‚С‹ Рё Р·Р°РїСѓСЃРєР°РµРј РїРѕРёСЃРє Р·Р°РЅРѕРІРѕ.
     public void RefreshRooms()
     {
         discoveredRooms.Clear();
 
-        // запускаем поиск комнат в локальной сети
+        // Р·Р°РїСѓСЃРєР°РµРј РїРѕРёСЃРє РєРѕРјРЅР°С‚ РІ Р»РѕРєР°Р»СЊРЅРѕР№ СЃРµС‚Рё
         discovery.StartDiscovery();
     }
 
-    // обновляем запись по идентификатору сервера и отправляем интерфейсу актуальную копию списка.
+    // РѕР±РЅРѕРІР»СЏРµРј Р·Р°РїРёСЃСЊ РїРѕ РёРґРµРЅС‚РёС„РёРєР°С‚РѕСЂСѓ СЃРµСЂРІРµСЂР° Рё РѕС‚РїСЂР°РІР»СЏРµРј РёРЅС‚РµСЂС„РµР№СЃСѓ Р°РєС‚СѓР°Р»СЊРЅСѓСЋ РєРѕРїРёСЋ СЃРїРёСЃРєР°.
     private void OnRoomFound(RoomDiscoveryResponse response)
     {
         Uri uri = response.uri;
@@ -60,6 +60,8 @@ public class LanRoomProvider : MonoBehaviour, IRoomProvider
         );
 
         discoveredRooms[response.serverId] = roomInfo;
+        roomInfo.isPrivate = response.isPrivate;
+        roomInfo.rules = response.rules;
 
         RoomsUpdated?.Invoke(new List<RoomInfo>(discoveredRooms.Values));
     }

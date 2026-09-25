@@ -160,6 +160,7 @@ public class TacticalEffect : NetworkBehaviour
     // зеркало перенаправляет снаряд к прежнему владельцу, меняет авторство и обновляет исключения столкновений.
     public static bool TryReflect(Collider hit,Transform projectile,uint incomingOwner,out uint reflectedOwner)
     {
+        if (UltimateMirror.TryReflect(hit, projectile, incomingOwner, out reflectedOwner)) return true;
         reflectedOwner=incomingOwner;
         var mirror=hit.GetComponentInParent<TacticalEffect>();
         if(mirror==null||!mirror.isServer||!mirror.CanBeHit(incomingOwner)||mirror.definition.kind!=TacticalKind.IceMirror)return false;

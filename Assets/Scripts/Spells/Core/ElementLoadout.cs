@@ -10,7 +10,7 @@ public struct ElementLoadout
 {
     public MagicElement q, e, r;
     public static ElementLoadout Default => new ElementLoadout
-    { q = MagicElement.Fire, e = MagicElement.Air, r = MagicElement.Ice };
+    { q = MagicElement.Fire, e = MagicElement.Earth, r = MagicElement.Water };
     // возвращаем стихию слота; вызывающий код должен передавать индекс от нуля до двух.
     public MagicElement Get(int slot) => slot == 0 ? q : slot == 1 ? e : r;
     public bool IsValid => Valid(q) && Valid(e) && Valid(r) && q != e && q != r && e != r;

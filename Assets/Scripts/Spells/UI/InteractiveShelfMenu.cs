@@ -71,6 +71,7 @@ public class InteractiveShelfMenu : MonoBehaviour
     // принимаем ввод только вне сетевого матча и после завершения перехода камеры.
     private void Update()
     {
+        if (ShopMenuUI.IsOpen) { shelfHint?.Hide(); hatHint?.Hide(); portalHint?.Hide(); return; }
         if (menuCamera == null || catalog == null) return;
         if (NetworkClient.active || NetworkServer.active)
         {
@@ -318,6 +319,7 @@ public class InteractiveShelfMenu : MonoBehaviour
     public void AssignBook(ElementBook book)
     {
         if (!IsFocused || book == null || LocalPlayerSettings.Instance == null) return;
+        if (!ShopCatalog.Allows(EconomyClient.Instance?.Profile, book.Element)) { ShopMenuUI.Instance?.Open("book"); return; }
         LocalPlayerSettings.Instance.SetElement(selectedSlot, book.Element);
         RefreshSelection();
     }

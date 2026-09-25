@@ -11,6 +11,8 @@ public class FireballProjectile : NetworkBehaviour
     private Vector3 previous;
     [SyncVar(hook = nameof(OnLensAmplified))] private bool lensAmplified;
     [SyncVar] public uint ownerId;
+    [SyncVar] public float damageScale = 1;
+    public int ImpactDamage => Mathf.RoundToInt((fireballDamage + (lensAmplified ? SteamLens.BonusDamage : 0)) * damageScale);
     // задаём срок жизни и исходную точку для проверки всего пути снаряда.
     public override void OnStartServer() { expiresAt = NetworkTime.time + lifetime;previous=transform.position; }
     // отключаем физическое движение у удалённых копий, получающих положение с сервера.
@@ -43,9 +45,9 @@ public class FireballProjectile : NetworkBehaviour
         if (TacticalEffect.TryReflect(other,transform,ownerId,out uint reflected)) { ownerId=reflected;previous=transform.position;return; }
         other.GetComponentInParent<TacticalEffect>()?.ProjectileHit(ownerId);
         consumed = true;
-        ArenaDestructible.Hit(other, point, fireballDamage + (lensAmplified ? SteamLens.BonusDamage : 0));
+        ArenaDestructible.Hit(other, point, ImpactDamage);
         Health health = other.GetComponentInParent<Health>();
-        if (health != null) health.TakeSpellDamage(fireballDamage + (lensAmplified ? SteamLens.BonusDamage : 0), ownerId, SpellDamage.IsHeadshot(health, other, other.ClosestPoint(transform.position)));
+        if (health != null) health.TakeSpellDamage(ImpactDamage, ownerId, SpellDamage.IsHeadshot(health, other, other.ClosestPoint(transform.position)));
         // хост воспроизводит эффект сразу: после уничтожения снаряда его rpc уже не найдёт объект.
         if (NetworkClient.active) ShowImpact(point);
         RpcImpact(point);

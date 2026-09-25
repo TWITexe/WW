@@ -5,14 +5,13 @@ using UnityEngine.UI;
 // обновляет сохранённый каталог на поверхности полок без создания экранного overlay-интерфейса.
 public class ShelfSpellCatalogUI : MonoBehaviour
 {
-    [SerializeField] private Text heading;
-    [SerializeField] private Text hint;
     [SerializeField] private Text[] slotLabels;
     [SerializeField] private Button[] slotButtons;
     [SerializeField] private ScrollRect scroll;
     [SerializeField] private List<SpellCard> cards = new List<SpellCard>();
     [SerializeField] private SavedElementBuildUI savedBuilds;
     private bool catalogReady;
+    [SerializeField] private UltimateBookEntry ultimateEntry;
     private ElementLoadout displayedLoadout;
     private UnityEngine.UI.GraphicRaycaster inputRaycaster;
 
@@ -59,6 +58,7 @@ public class ShelfSpellCatalogUI : MonoBehaviour
     // показываем все доступные рецепты выбранного набора и текущий слот назначения.
     public void Refresh(ElementLoadout loadout, int selectedSlot)
     {
+        if (ultimateEntry != null) ultimateEntry.Refresh(loadout);
         if (savedBuilds != null) savedBuilds.Refresh(loadout);
         for (int slot = 0; slot < slotLabels.Length; slot++)
         {
@@ -82,9 +82,6 @@ public class ShelfSpellCatalogUI : MonoBehaviour
             available++;
             card.recipe.text = loadout.KeysFor(card.spell.Recipe) + "   ·   " + card.spell.Cooldown.ToString("0.#") + " с";
         }
-
-        heading.text = "КНИГА ЗАКЛИНАНИЙ  ·  " + available + " / " + cards.Count;
-        hint.text = "разворот / Q E R — слот · книга — стихия\nколесо — список · Esc / ПКМ — назад";
         Canvas.ForceUpdateCanvases();
         scroll.verticalNormalizedPosition = 1f;
     }
@@ -99,11 +96,9 @@ public class ShelfSpellCatalogUI : MonoBehaviour
     }
 
     // записываем созданные в редакторе элементы в сериализованные поля компонента.
-    public void Configure(Text title, Text instruction, Text[] labels, Button[] buttons,
+    public void Configure(Text[] labels, Button[] buttons,
         ScrollRect list, List<SpellCard> spellCards)
     {
-        heading = title;
-        hint = instruction;
         slotLabels = labels;
         slotButtons = buttons;
         scroll = list;

@@ -9,6 +9,8 @@ public class RoomInfo
     public ushort port;
     public int players;
     public int maxPlayers;
+    public bool isPrivate;
+    public MatchRules rules;
 
     // заполняем данные одной комнаты из ответа выбранного источника.
     public RoomInfo(string roomName, string address, ushort port, int players, int maxPlayers)

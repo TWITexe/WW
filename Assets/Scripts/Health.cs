@@ -23,6 +23,7 @@ public class Health : NetworkBehaviour
     private double shieldUntil;
     private uint lastAttacker;
     private double lastAttackTime;
+    private PlayerUltimate ultimate;
     public int Shield => shield;
     public event System.Action<int> ShieldChanged;
 
@@ -44,8 +45,10 @@ public class Health : NetworkBehaviour
         if (isServer && shield > 0 && NetworkTime.time >= shieldUntil) shield = 0;
     }
 
-    public int CurrentHealth => currentHealth;
-    public int MaxHealth => maxHealth;
+    public int CurrentHealth => ultimate != null && ultimate.HasForm ? ultimate.FormHealth : currentHealth;
+    public int MaxHealth => ultimate != null && ultimate.HasForm ? ultimate.FormMaxHealth : maxHealth;
+    public int BaseMaxHealth => maxHealth;
+    public ulong HealthDamageTotal { get; private set; }
     // учитываем поглощённые щитом попадания, чтобы источник не лечил под обстрелом.
     public uint DamageVersion { get; private set; }
 
@@ -54,6 +57,7 @@ public class Health : NetworkBehaviour
     // задаём начальное здоровье до запуска сетевых обратных вызовов.
     private void Awake()
     {
+        ultimate = GetComponent<PlayerUltimate>();
         currentHealth = maxHealth;
     }
 
@@ -78,23 +82,42 @@ public class Health : NetworkBehaviour
     [Server]
     public void TakeDamage(int damage, uint attackerId = 0, bool headshot = false)
     {
-        if (currentHealth <= 0 || isDead)
+        if (!NetManager.CombatAllowed || currentHealth <= 0 || isDead)
             return;
 
         damage = Mathf.Max(0, damage);
         if (damage > 0) DamageVersion++;
         if (damage > 0) RecordAttacker(attackerId);
+        if (ultimate != null && ultimate.HasForm)
+        {
+            int formDamage = ultimate.ServerDamageForm(damage, attackerId);
+            HealthDamageTotal += (ulong)formDamage;
+            CreditUltimateDamage(formDamage, attackerId);
+            if (formDamage > 0) RpcDamageNumber(formDamage, false, transform.position + Vector3.up * 2.8f);
+            return;
+        }
         if (NetworkTime.time >= shieldUntil) shield = 0;
         int absorbed = Mathf.Min(shield, damage);
         shield -= absorbed;
         int actualDamage = Mathf.Min(currentHealth, damage - absorbed);
         currentHealth -= actualDamage;
+        HealthDamageTotal += (ulong)actualDamage;
+        CreditUltimateDamage(actualDamage, attackerId);
         if (actualDamage > 0) RpcDamageNumber(actualDamage, headshot, transform.position + Vector3.up * 2.1f);
 
         if (currentHealth <= 0)
         {
+            if (ultimate != null && ultimate.ServerPreventDeath()) { currentHealth = 1; shield = 0; return; }
             Die();
         }
+    }
+
+    // Only health actually removed from an enemy grants charge; shields and overkill do not.
+    [Server] private void CreditUltimateDamage(int actualDamage, uint attackerId)
+    {
+        if (actualDamage <= 0 || attackerId == 0 || attackerId == netId) return;
+        if (NetworkServer.spawned.TryGetValue(attackerId, out var attacker))
+            attacker.GetComponentInChildren<PlayerUltimate>()?.ServerCreditDamage(this, actualDamage);
     }
 
     // запоминаем последнего противника для зачёта убийства, в том числе после попадания в ловушку.
@@ -127,8 +150,10 @@ public class Health : NetworkBehaviour
     [Server]
     public void Heal(int amount)
     {
-        if (currentHealth <= 0)
+        if (currentHealth <= 0 || isDead || amount <= 0)
             return;
+
+        if (ultimate != null && ultimate.HasForm) { ultimate.ServerHealForm(amount); return; }
 
         currentHealth += amount;
 
@@ -145,6 +170,7 @@ public class Health : NetworkBehaviour
             return;
 
         isDead = true;
+        ultimate?.ServerEnd(false);
         GetComponent<RelativeMovement>()?.ResetVerticalVelocity();
         GetComponent<PlayerStats>()?.AddDeath();
         var victimStats = GetComponent<PlayerStats>();
@@ -176,6 +202,8 @@ public class Health : NetworkBehaviour
     {
         yield return new WaitForSeconds(3f);
 
+        if (!NetManager.CombatAllowed) yield break;
+
         Transform spawn = SpawnManager.Instance.GetSpawnPoint();
 
         currentHealth = maxHealth;
@@ -194,7 +222,21 @@ public class Health : NetworkBehaviour
     // уведомляем подписанный интерфейс после получения нового здоровья через SyncVar.
     private void OnHealthChanged(int oldHealth, int newHealth)
     {
-        OnHealthChangedEvent?.Invoke(newHealth, maxHealth);
+        NotifyVitalsChanged();
+    }
+
+    public void NotifyVitalsChanged() => OnHealthChangedEvent?.Invoke(CurrentHealth, MaxHealth);
+    [Server] public void ServerRestoreAfterUltimate(int amount)
+    {
+        if (isDead) return;
+        currentHealth = Mathf.Clamp(amount, 1, maxHealth);
+        NotifyVitalsChanged();
+    }
+    [Server] public void ServerUltimateDeath(uint attacker)
+    {
+        RecordAttacker(attacker);
+        currentHealth = 0;
+        Die();
     }
 
 }

@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-// резервирует уникальные цвета игроков и переводит их идентификаторы в цвета Unity.
+// СЂРµР·РµСЂРІРёСЂСѓРµС‚ СѓРЅРёРєР°Р»СЊРЅС‹Рµ С†РІРµС‚Р° РёРіСЂРѕРєРѕРІ Рё РїРµСЂРµРІРѕРґРёС‚ РёС… РёРґРµРЅС‚РёС„РёРєР°С‚РѕСЂС‹ РІ С†РІРµС‚Р° Unity.
 public class PlayerColorManager : MonoBehaviour
 {
     public static PlayerColorManager Instance { get; private set; }
@@ -22,13 +22,13 @@ public class PlayerColorManager : MonoBehaviour
 
     private readonly HashSet<PlayerColorId> usedColors = new();
 
-    // публикуем менеджер цветов текущей сцены.
+    // РїСѓР±Р»РёРєСѓРµРј РјРµРЅРµРґР¶РµСЂ С†РІРµС‚РѕРІ С‚РµРєСѓС‰РµР№ СЃС†РµРЅС‹.
     private void Awake()
     {
         Instance = this;
     }
 
-    // пытаемся занять желаемый цвет, иначе выбираем первый свободный.
+    // РїС‹С‚Р°РµРјСЃСЏ Р·Р°РЅСЏС‚СЊ Р¶РµР»Р°РµРјС‹Р№ С†РІРµС‚, РёРЅР°С‡Рµ РІС‹Р±РёСЂР°РµРј РїРµСЂРІС‹Р№ СЃРІРѕР±РѕРґРЅС‹Р№.
     public PlayerColorId GetColorOrFree(PlayerColorId requestedColor)
     {
         if (TryReserveColor(requestedColor))
@@ -37,7 +37,7 @@ public class PlayerColorManager : MonoBehaviour
         return GetFreeColor();
     }
 
-    // резервируем первый незанятый цвет; при исчерпании палитры возвращаем None.
+    // СЂРµР·РµСЂРІРёСЂСѓРµРј РїРµСЂРІС‹Р№ РЅРµР·Р°РЅСЏС‚С‹Р№ С†РІРµС‚; РїСЂРё РёСЃС‡РµСЂРїР°РЅРёРё РїР°Р»РёС‚СЂС‹ РІРѕР·РІСЂР°С‰Р°РµРј None.
     public PlayerColorId GetFreeColor()
     {
         foreach (PlayerColorId colorId in availableColors)
@@ -49,11 +49,11 @@ public class PlayerColorManager : MonoBehaviour
             }
         }
 
-        Debug.LogWarning("Свободные цвета закончились!");
+        Debug.LogWarning("РЎРІРѕР±РѕРґРЅС‹Рµ С†РІРµС‚Р° Р·Р°РєРѕРЅС‡РёР»РёСЃСЊ!");
         return PlayerColorId.None;
     }
 
-    // отклоняем неизвестный или занятый цвет, затем отмечаем допустимый как использованный.
+    // РѕС‚РєР»РѕРЅСЏРµРј РЅРµРёР·РІРµСЃС‚РЅС‹Р№ РёР»Рё Р·Р°РЅСЏС‚С‹Р№ С†РІРµС‚, Р·Р°С‚РµРј РѕС‚РјРµС‡Р°РµРј РґРѕРїСѓСЃС‚РёРјС‹Р№ РєР°Рє РёСЃРїРѕР»СЊР·РѕРІР°РЅРЅС‹Р№.
     public bool TryReserveColor(PlayerColorId colorId)
     {
         if (colorId == PlayerColorId.None)
@@ -69,7 +69,7 @@ public class PlayerColorManager : MonoBehaviour
         return true;
     }
 
-    // освобождаем цвет отключившегося или сменившего оформление игрока.
+    // РѕСЃРІРѕР±РѕР¶РґР°РµРј С†РІРµС‚ РѕС‚РєР»СЋС‡РёРІС€РµРіРѕСЃСЏ РёР»Рё СЃРјРµРЅРёРІС€РµРіРѕ РѕС„РѕСЂРјР»РµРЅРёРµ РёРіСЂРѕРєР°.
     public void ReleaseColor(PlayerColorId colorId)
     {
         if (colorId == PlayerColorId.None)
@@ -78,8 +78,11 @@ public class PlayerColorManager : MonoBehaviour
         usedColors.Remove(colorId);
     }
 
-    // переводим сетевой идентификатор в отображаемый цвет.
+    // РїРµСЂРµРІРѕРґРёРј СЃРµС‚РµРІРѕР№ РёРґРµРЅС‚РёС„РёРєР°С‚РѕСЂ РІ РѕС‚РѕР±СЂР°Р¶Р°РµРјС‹Р№ С†РІРµС‚.
     public Color GetUnityColor(PlayerColorId colorId)
+        => ToUnityColor(colorId);
+
+    public static Color ToUnityColor(PlayerColorId colorId)
     {
         return colorId switch
         {

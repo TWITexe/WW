@@ -15,10 +15,12 @@ public class OrbitCamera : MonoBehaviour
     private float yaw, pitch;
     private Vector3 shakeOffset;
     private RelativeMovement movement;
+    private PlayerUltimate ultimate;
     // задаём начальные углы, поле зрения и ближнюю плоскость камеры.
     private void Start()
     {
         movement = target != null ? target.GetComponent<RelativeMovement>() : null;
+        ultimate = target != null ? target.GetComponent<PlayerUltimate>() : null;
         pitch = Mathf.Clamp(initialPitch, minVerticalAngle, maxVerticalAngle);
         yaw = target != null ? target.eulerAngles.y : transform.eulerAngles.y;
         var camera = GetComponent<Camera>();
@@ -34,11 +36,14 @@ public class OrbitCamera : MonoBehaviour
             pitch = Mathf.Clamp(pitch - Input.GetAxis("Mouse Y") * rotSpeed, minVerticalAngle, maxVerticalAngle);
         }
         Quaternion rotation = Quaternion.Euler(pitch, yaw, 0);
-        Vector3 pivot = target.position + Vector3.up * pivotHeight + (movement != null ? movement.PresentationOffset : Vector3.zero);
-        Vector3 offset = rotation * new Vector3(shoulderOffset, 0, -defaultDistance);
+        var controlled = ultimate != null ? ultimate.ControlledOrb : null;
+        Vector3 pivot = controlled != null ? controlled.PresentationPosition + Vector3.up * .45f :
+            target.position + Vector3.up * pivotHeight + (movement != null ? movement.PresentationOffset : Vector3.zero);
+        Vector3 offset = rotation * new Vector3(controlled != null ? 0 : shoulderOffset, 0, -defaultDistance);
         float distance = offset.magnitude;
         foreach (var hit in Physics.SphereCastAll(pivot, .18f, offset.normalized, distance, ~(1 << 2), QueryTriggerInteraction.Ignore))
-            if (!hit.collider.transform.IsChildOf(target.root) && hit.collider.GetComponentInParent<Health>() == null)
+            if (!hit.collider.transform.IsChildOf(target.root) && hit.collider.GetComponentInParent<Health>() == null &&
+                (controlled == null || !hit.collider.transform.IsChildOf(controlled.transform)))
                 distance = Mathf.Min(distance, Mathf.Max(.25f, hit.distance - .05f));
         transform.SetPositionAndRotation(pivot + offset.normalized * distance + shakeOffset, rotation);
     }

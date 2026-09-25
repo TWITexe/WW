@@ -5,7 +5,7 @@ using UnityEngine;
 // сервер и клиентское предсказание используют общий расчёт движения с фиксированным шагом.
 [DefaultExecutionOrder(-100)]
 [RequireComponent(typeof(CharacterController))]
-public class RelativeMovement : NetworkBehaviour
+public partial class RelativeMovement : NetworkBehaviour
 {
     [SerializeField] CameraShake cameraShake;
     [SerializeField] Camera playerCamera;
@@ -36,6 +36,7 @@ public class RelativeMovement : NetworkBehaviour
         public uint epoch, sequence;
         public Vector3 movement, forward;
         public bool jump, sprint, blocked;
+        public float vertical;
     }
     public struct MotorState
     {
@@ -50,6 +51,7 @@ public class RelativeMovement : NetworkBehaviour
         public Vector3 iceVelocity;
         public SpellControlRules.TimedSlow[] slows;
         public bool jumping, dead;
+        public UltimateMotionState ultimateMotion;
     }
 
     const int MaxServerQueue = 8;
@@ -126,7 +128,7 @@ public class RelativeMovement : NetworkBehaviour
         bool blocked = sampledInput.blocked;
         if (blocked) jumpQueued = false;
         else jumpQueued |= Input.GetButtonDown("Jump");
-        PlanarInputDirection = sampledInput.movement;
+        PlanarInputDirection = IsUltimateRooted ? Vector3.zero : sampledInput.movement;
         cameraShake?.SetShaking(!blocked && ProbeGround() && PlanarInputDirection.sqrMagnitude > .1f,
             moveSpeed * moveSpeed * (sprinting ? sprintMultiplier * sprintMultiplier : 1) * slowMultiplier * slowMultiplier);
     }
@@ -143,6 +145,7 @@ public class RelativeMovement : NetworkBehaviour
             forward = forward,
             movement = blocked ? Vector3.zero : (right * Input.GetAxisRaw("Horizontal") + forward * Input.GetAxisRaw("Vertical")).normalized,
             sprint = !blocked && Input.GetKey(KeyCode.LeftShift),
+            vertical = blocked ? 0 : (Input.GetKey(KeyCode.Space) ? 1 : 0) - (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift) ? 1 : 0),
             blocked = blocked
         };
     }
@@ -183,7 +186,8 @@ public class RelativeMovement : NetworkBehaviour
         if (input.epoch != serverEpoch || input.sequence <= lastReceived ||
             !Finite(input.movement) || !Finite(input.forward) ||
             input.movement.sqrMagnitude > 1.01f || input.forward.sqrMagnitude > 1.01f ||
-            Mathf.Abs(input.movement.y) > .001f || Mathf.Abs(input.forward.y) > .001f)
+            Mathf.Abs(input.movement.y) > .001f || Mathf.Abs(input.forward.y) > .001f ||
+            float.IsNaN(input.vertical) || float.IsInfinity(input.vertical) || Mathf.Abs(input.vertical) > 1)
             return false;
         lastReceived = input.sequence;
         lastArrival = now;
@@ -227,7 +231,8 @@ public class RelativeMovement : NetworkBehaviour
     // общий расчёт для серверного шага и повтора ещё не подтверждённого ввода.
     void Simulate(MoveInput input, float dt, double simulationTime)
     {
-        if (!controller.enabled || (health != null && health.IsDead)) { sprinting = false; return; }
+        if (!NetManager.CombatAllowed || !controller.enabled || (health != null && health.IsDead)) { sprinting = false; return; }
+        if (SimulateUltimate(ref input, dt, simulationTime)) return;
         bool stunned = simulationTime < stunUntil;
         if (stunned) { input.blocked = true; input.jump = false; dashRemaining = 0; iceVelocity = Vector3.zero; }
         slowMultiplier = SpellControlRules.SlowMultiplier(slows, simulationTime);
@@ -236,6 +241,7 @@ public class RelativeMovement : NetworkBehaviour
         jumpCooldownTimer = Mathf.Max(0, jumpCooldownTimer - dt);
         jumpSlowTimer = Mathf.Max(0, jumpSlowTimer - dt);
         bool grounded = vertSpeed <= 0 && ProbeGround();
+        if (slamDamage > 0 && isServer) CheckUltimateLanding(grounded, simulationTime);
         bool jumped = false;
         if (grounded)
         {
@@ -243,16 +249,20 @@ public class RelativeMovement : NetworkBehaviour
             vertSpeed = minFall;
             if (!input.blocked && input.jump && jumpCooldownTimer <= 0)
             {
-                vertSpeed = jumpSpeed;
+                vertSpeed = simulationTime < ultimateMotion.spiritUntil ? jumpSpeed * 1.4f : jumpSpeed;
                 jumpCooldownTimer = jumpCooldown;
                 isJumping = true;
                 jumped = true;
             }
         }
-        if (!grounded && !jumped)
+        if (!grounded && !jumped && simulationTime < ultimateMotion.gravityUntil)
+            vertSpeed = Mathf.Clamp((ultimateMotion.hoverY - transform.position.y) * 2, -4, 5);
+        else if (!grounded && !jumped)
             vertSpeed = Mathf.Max(terminalVelocity, vertSpeed + gravity * (vertSpeed < 0 ? fallGravityMultiplier : 5) * dt);
+        if (grounded && simulationTime < ultimateMotion.gravityUntil) { vertSpeed = 5; grounded = false; }
         Vector3 movement = input.blocked ? Vector3.zero : Vector3.ClampMagnitude(input.movement, 1);
         float multiplier = slowMultiplier;
+        if (simulationTime < ultimateMotion.spiritUntil) multiplier *= .65f;
         // сервер и предсказание одинаково ограничивают ускорение доступным запасом стамины.
         bool wantsSprint = !input.blocked && input.sprint && movement.sqrMagnitude > .001f;
         float sprintFraction = wantsSprint ? Mathf.Clamp01(stamina / Mathf.Max(.0001f, sprintDrainPerSecond * dt)) : 0;
@@ -296,7 +306,8 @@ public class RelativeMovement : NetworkBehaviour
         slowMultiplier = slowMultiplier, slows = slows, simulationTime = NetworkTime.time,
         stamina = stamina, sprinting = sprinting,
         stunUntil = stunUntil, iceVelocity = iceVelocity,
-        dead = health != null && health.IsDead
+        dead = health != null && health.IsDead,
+        ultimateMotion = ultimateMotion
     };
 
     [TargetRpc(channel = Channels.Unreliable)]
@@ -334,6 +345,7 @@ public class RelativeMovement : NetworkBehaviour
         sprinting = state.sprinting;
         stunUntil = state.stunUntil;
         iceVelocity = state.iceVelocity;
+        ultimateMotion = state.ultimateMotion;
         if (!state.dead)
             for (int i = 0; i < pendingInputs.Count; i++)
                 Simulate(pendingInputs[i], Time.fixedDeltaTime, state.simulationTime + (i + 1) * Time.fixedDeltaTime);
@@ -430,6 +442,8 @@ public class RelativeMovement : NetworkBehaviour
         hasPreviousTick = false;
         if (isServer)
         {
+            ultimateMotion = default;
+            slamDamage = 0;
             slowMultiplier = 1;
             slows = System.Array.Empty<SpellControlRules.TimedSlow>();
             nextPeriodicLiftAt = 0;

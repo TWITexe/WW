@@ -6,7 +6,7 @@ using UnityEngine.UI;
 
 // связывает сохранённый интерфейс матча с локальным игроком: здоровье, комбинации, перезарядки и таблицу.
 [DefaultExecutionOrder(-100)]
-public class PlayerGameUI : MonoBehaviour
+public partial class PlayerGameUI : MonoBehaviour
 {
     public static bool InputBlocked { get; private set; }
     private PlayerNetworkCaster caster;
@@ -27,6 +27,8 @@ public class PlayerGameUI : MonoBehaviour
     private Sprite fillSprite;
     private Font font;
     private bool built;
+    [SerializeField] private UltimateHUD ultimateHUD;
+    private PlayerUltimate ultimate;
     private float nextScore;
     private int displayedHealth = -1, displayedShield = -1, displayedMaxHealth = -1;
     private string loadoutCaption;
@@ -57,6 +59,7 @@ public class PlayerGameUI : MonoBehaviour
         resumeButton.onClick.AddListener(()=>SetPause(false));
         menuButton.onClick.AddListener(ReturnToMenu);
         quitButton.onClick.AddListener(QuitGame);
+        BindMatchUI();
     }
     // ожидаем локального игрока, фильтруем его заклинания и обновляем здоровье, комбинацию и перезарядки.
     private void Update()
@@ -70,9 +73,12 @@ public class PlayerGameUI : MonoBehaviour
             spells=caster.GetComponent<SpellManager>();health=caster.GetComponent<Health>();
             comboTracker = caster.GetComponent<InputComboTracker>();
             movement = caster.GetComponent<RelativeMovement>();
+            ultimate = caster.GetComponent<PlayerUltimate>();
             displayedStamina = -1;
+            ResetVitals();
             canvas.enabled=true;built=false;SetPause(false);
         }
+        if (UpdateMatchUI()) return;
         if(Input.GetKeyDown(KeyCode.Escape))SetPause(!InputBlocked);
         scoreboard.SetActive(!InputBlocked&&Input.GetKey(KeyCode.Tab));
         if(caster.LoadoutReady&&!built)
@@ -84,6 +90,17 @@ public class PlayerGameUI : MonoBehaviour
                 card.keys.text=caster.Loadout.KeysFor(card.spell.Recipe).Replace(" → ","");
             }
             built=true;
+            if (ultimateHUD != null)
+            {
+                ultimateHUD.Bind(ultimate);
+                int visible = 0;
+                foreach (var card in cards)
+                {
+                    if (!card.root.activeSelf) continue;
+                    if (visible++ == 4) ultimateHUD.transform.SetAsLastSibling();
+                    card.root.transform.SetAsLastSibling();
+                }
+            }
             loadoutCaption = $"Q · {ElementLoadout.Label(caster.Loadout.q)}    E · {ElementLoadout.Label(caster.Loadout.e)}    R · {ElementLoadout.Label(caster.Loadout.r)}\nКомбинация: ";
             displayedCombo = int.MinValue;
         }
@@ -93,20 +110,30 @@ public class PlayerGameUI : MonoBehaviour
             displayedHealth = health.CurrentHealth;
             displayedShield = health.Shield;
             displayedMaxHealth = health.MaxHealth;
-            status.text=$"Здоровье  {displayedHealth} / {displayedMaxHealth}"+(displayedShield>0?$"   Щит  {displayedShield}":"");
+            if (vitalsHealthText != null)
+            {
+                vitalsHealthText.SetText("{0}", displayedHealth);
+                vitalsMaxHealthText.SetText("/ {0}", displayedMaxHealth);
+                vitalsShieldText.SetText("{0}", displayedShield);
+            }
+            else if (status != null)
+                status.text=$"Здоровье  {displayedHealth} / {displayedMaxHealth}"+(displayedShield>0?$"   Щит  {displayedShield}":"");
         }
         if (healthFill != null) healthFill.fillAmount = Mathf.Clamp01((float)health.CurrentHealth / Mathf.Max(1, health.MaxHealth));
+        UpdateShieldBar();
         // показываем предсказанный запас владельца, который сверяется с сервером вместе с позицией.
         if (movement != null && staminaFill != null)
         {
             float fraction = health.IsDead ? 0 : Mathf.Clamp01(movement.Stamina / Mathf.Max(1, movement.MaxStamina));
             staminaFill.rectTransform.anchorMax = new Vector2(fraction, 1);
-            staminaFill.color = fraction <= .2f ? new Color(1,.4f,.16f) : new Color(.25f,.9f,.75f);
+            staminaFill.color = new Color(.2f,.55f,1f);
+            if (vitalsStaminaText != null) vitalsStaminaText.color = staminaFill.color;
             int value = Mathf.CeilToInt(fraction * movement.MaxStamina);
-            if (staminaLabel != null && value != displayedStamina)
+            if (value != displayedStamina)
             {
                 displayedStamina = value;
-                staminaLabel.text = $"Стамина  {value} / {Mathf.RoundToInt(movement.MaxStamina)}";
+                if (vitalsStaminaText != null) vitalsStaminaText.SetText("{0}", value);
+                else if (staminaLabel != null) staminaLabel.text = $"Стамина  {value} / {Mathf.RoundToInt(movement.MaxStamina)}";
             }
         }
         // код последовательности позволяет заметить изменение без создания строк и массивов при неподвижном вводе.
@@ -122,6 +149,7 @@ public class PlayerGameUI : MonoBehaviour
                 loadoutCaption + caster.Loadout.KeysFor(comboTracker.History) : "Подготовка стихий…";
         }
         string areaCaption=caster.AreaAimCaption;
+        if (ultimate != null && ultimate.Caption != null) areaCaption = ultimate.Caption;
         if(areaCaption != null) { combo.text = areaCaption; displayedCombo=int.MinValue; }
         if(killFeed!=null && Time.unscaledTime>=nextKillFeed)
         {
@@ -149,6 +177,7 @@ public class PlayerGameUI : MonoBehaviour
     // блокируем локальный ввод и освобождаем курсор; сетевой матч при этом продолжается.
     public void SetPause(bool open)
     {
+        if (resultsPanel != null && resultsPanel.activeSelf) return;
         InputBlocked=open;if(pause!=null)pause.SetActive(open);
         Cursor.lockState=open?CursorLockMode.None:CursorLockMode.Locked;Cursor.visible=open;
     }
@@ -169,6 +198,7 @@ public class PlayerGameUI : MonoBehaviour
     // завершаем локальный хост или клиент и возвращаем свободный курсор.
     public void ReturnToMenu()
     {
+        if (NetManager.Room != null) { NetManager.Room.LeaveRoom(); return; }
         SetPause(false);
         var manager=NetworkManager.singleton;
         if(NetworkServer.active&&NetworkClient.active)manager.StopHost();
@@ -332,5 +362,5 @@ public class PlayerGameUI : MonoBehaviour
     }
 #endif
     // снимаем блокировку ввода и освобождаем курсор при отключении интерфейса.
-    private void OnDisable(){InputBlocked=false;Cursor.lockState=CursorLockMode.None;Cursor.visible=true;}
+    private void OnDisable(){Canvas.willRenderCanvases-=PositionVitals;InputBlocked=false;Cursor.lockState=CursorLockMode.None;Cursor.visible=true;}
 }

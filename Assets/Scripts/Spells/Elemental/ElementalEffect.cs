@@ -7,6 +7,8 @@ public class ElementalEffect : NetworkBehaviour
 {
     public ElementalSpell definition;
     [SyncVar] public uint ownerId;
+    [SyncVar] public float damageScale = 1;
+    public int ImpactDamage => Mathf.RoundToInt((definition.damage + (lensAmplified ? SteamLens.BonusDamage : 0)) * damageScale);
     // передаём время создания для согласованного появления и затухания графики.
     [SyncVar] public double bornAt;
     private double expiresAt;
@@ -107,7 +109,7 @@ public class ElementalEffect : NetworkBehaviour
         else
         {
             ApplyTarget(direct, headshot);
-            ArenaDestructible.Hit(other, point, definition.damage + (lensAmplified ? SteamLens.BonusDamage : 0));
+            ArenaDestructible.Hit(other, point, ImpactDamage);
         }
         Finish(true, point);
     }
@@ -135,7 +137,7 @@ public class ElementalEffect : NetworkBehaviour
     private void ApplyTarget(Health health, bool headshot = false)
     {
         if (health == null || health.netId == ownerId || health.IsDead) return;
-        health.TakeSpellDamage(definition.damage + (lensAmplified ? SteamLens.BonusDamage : 0), ownerId, headshot);
+        health.TakeSpellDamage(ImpactDamage, ownerId, headshot);
         var movement = health.GetComponent<RelativeMovement>();
         if (movement == null || health.IsDead) return;
         Vector3 outward = (health.transform.position - transform.position);

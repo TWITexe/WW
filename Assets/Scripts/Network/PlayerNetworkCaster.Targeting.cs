@@ -17,6 +17,19 @@ public partial class PlayerNetworkCaster
     public string AreaAimCaption => pendingLocalSpell == null ? null :
         pendingLocalSpell.Name + " · ЛКМ — применить · " + Mathf.CeilToInt((float)(pendingLocalUntil-NetworkTime.time)) + " с";
 
+    public void CancelForUltimate()
+    {
+        if (pendingLocalSpell != null) CmdCancelArea(pendingLocalToken);
+        CancelLocalAreaAim();
+        GetComponent<InputComboTracker>()?.Clear();
+    }
+    [Server] public void ServerCancelForUltimate()
+    {
+        pendingServerSpell = null; serverInput.Clear();
+        if (channelRoutine != null) StopCoroutine(channelRoutine);
+        channelRoutine = null; channelLocalUntil = 0;
+    }
+
     public static bool RequiresAreaConfirmation(Spell spell)
     {
         if (spell is ElementalSpell elemental) return elemental.mode == ElementalCastMode.GroundZone && elemental.name != "SmokeCloud";
@@ -83,7 +96,7 @@ public partial class PlayerNetworkCaster
 
     [Command] private void CmdConfirmArea(uint token, Vector3 origin, Vector3 direction)
     {
-        if (pendingServerSpell == null || token != pendingServerToken || NetworkTime.time >= pendingServerUntil ||
+        if (!NetManager.CombatAllowed || UltimateBlocksSpells || pendingServerSpell == null || token != pendingServerToken || NetworkTime.time >= pendingServerUntil ||
             health.IsDead || movementController.IsStunned || !Finite(origin) || !ValidDirection(direction) ||
             (origin-transform.position).sqrMagnitude > 100) return;
         Spell spell = pendingServerSpell;
@@ -125,7 +138,7 @@ public partial class PlayerNetworkCaster
     {
         for(int i=0;i<12;i++)
         {
-            if (health.IsDead || movementController.IsStunned) break;
+            if (!NetManager.CombatAllowed || UltimateBlocksSpells || health.IsDead || movementController.IsStunned) break;
             emittingChannelDrop = true;
             try { CastElemental(spell,ResolveAimDirection(channelRay)); }
             finally { emittingChannelDrop = false; }

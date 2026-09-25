@@ -44,9 +44,19 @@ public class PlayerStats : NetworkBehaviour
     public int Ping => ping;
     public string DisplayName => playerName != null ? playerName.Nickname : "Player";
     // сервер увеличивает счётчик убийств, который затем получат клиенты.
-    [Server] public void AddKill() => kills++;
+    [Server] public void AddKill()
+    {
+        if (!NetManager.CombatAllowed) return;
+        kills++;
+        NetManager.Room?.CheckKillGoal(this);
+    }
+    public void RestoreScore(int savedKills, int savedDeaths)
+    {
+        kills = Mathf.Max(0, savedKills);
+        deaths = Mathf.Max(0, savedDeaths);
+    }
     // сервер увеличивает счётчик смертей, который затем получат клиенты.
-    [Server] public void AddDeath() => deaths++;
+    [Server] public void AddDeath() { if (NetManager.CombatAllowed) deaths++; }
     // раз в секунду обновляем пинг по времени кругового обмена с клиентом, переводя секунды в миллисекунды.
     private void Update()
     {

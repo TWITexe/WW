@@ -22,6 +22,8 @@ public static class ProjectileContact
     // прочие цели сохраняют свои коллайдеры; у мага урон принимает только анимированное тело.
     public static bool IsDamageCollider(Collider collider, Health health)
     {
+        var ultimate = health.GetComponent<PlayerUltimate>();
+        if (ultimate != null && ultimate.HasForm) return ultimate.IsFormCollider(collider);
         var appearance = health.GetComponent<WizardAppearance>();
         return appearance == null || !appearance.HasAnimatedHitboxes || appearance.IsDamageCollider(collider);
     }

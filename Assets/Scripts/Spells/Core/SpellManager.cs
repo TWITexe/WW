@@ -25,7 +25,7 @@ public class SpellManager : MonoBehaviour
     {
         if (caster == null || !caster.isLocalPlayer) return;
         tracker.Expire();
-        if (PlayerGameUI.InputBlocked || !caster.LoadoutReady || (health != null && health.IsDead) || (movement != null && movement.IsStunned))
+        if (PlayerGameUI.InputBlocked || !caster.LoadoutReady || caster.UltimateBlocksSpells || (health != null && health.IsDead) || (movement != null && movement.IsStunned))
         {
             tracker.Clear();
             return;

@@ -7,35 +7,25 @@ public class PlayerColor : NetworkBehaviour
     [SerializeField] private Renderer bodyRenderer;
 
     [SyncVar(hook = nameof(OnColorChanged))]
-    private PlayerColorId playerColorId = PlayerColorId.None;
-    public Color DisplayColor => PlayerColorManager.Instance != null ? PlayerColorManager.Instance.GetUnityColor(playerColorId) : Color.white;
+    private PlayerColorId playerColorId = PlayerColorId.Blue;
+    public Color DisplayColor => PlayerColorManager.ToUnityColor(playerColorId);
 
     // отправляем серверу цвет, выбранный владельцем персонажа в меню.
     public override void OnStartLocalPlayer()
     {
         base.OnStartLocalPlayer();
 
-        PlayerColorId requestedColor = LocalPlayerSettings.Instance.CosmeticSettings.preferredColor;
+        PlayerColorId requestedColor = LocalPlayerSettings.Instance != null ? LocalPlayerSettings.Instance.SelectedColor : PlayerColorId.Blue;
 
         CmdRequestColor(requestedColor);
     }
 
-    // освобождаем прежний цвет и резервируем желаемый либо первый свободный.
+    // Проверяем выбор по инвентарю, переданному хосту при входе в комнату.
     [Command]
     private void CmdRequestColor(PlayerColorId requestedColor)
     {
-        if (playerColorId != PlayerColorId.None)
-            PlayerColorManager.Instance.ReleaseColor(playerColorId);
-
-        playerColorId = PlayerColorManager.Instance.GetColorOrFree(requestedColor);
-    }
-
-    // возвращаем цвет в пул после удаления игрока с сервера.
-    public override void OnStopServer()
-    {
-        base.OnStopServer();
-
-        PlayerColorManager.Instance.ReleaseColor(playerColorId);
+        var profile = NetManager.Room?.RoomAuth.ProfileFor(connectionToClient);
+        playerColorId = ShopCatalog.Allows(profile, requestedColor) ? requestedColor : PlayerColorId.Blue;
     }
 
     // применяем новый цвет после сетевого изменения SyncVar.
@@ -56,15 +46,15 @@ public class PlayerColor : NetworkBehaviour
     private void ApplyColor(PlayerColorId colorId)
     {
         var wizard = GetComponent<WizardAppearance>();
-        if (wizard != null && PlayerColorManager.Instance != null)
+        if (wizard != null)
         {
-            wizard.Tint(PlayerColorManager.Instance.GetUnityColor(colorId));
+            wizard.Tint(PlayerColorManager.ToUnityColor(colorId));
             return;
         }
         if (bodyRenderer == null)
             return;
 
-        Color unityColor = PlayerColorManager.Instance.GetUnityColor(colorId);
+        Color unityColor = PlayerColorManager.ToUnityColor(colorId);
         bodyRenderer.material.color = unityColor;
     }
 }

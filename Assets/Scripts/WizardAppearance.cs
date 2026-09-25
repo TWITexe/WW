@@ -55,6 +55,7 @@ public class WizardAppearance : NetworkBehaviour
     private double nextLookSend;
     private bool poseReady;
     private Health health;
+    private PlayerUltimate ultimate;
     private bool wasDead;
     private Collider[] bodyColliders;
     private bool[] colliderDefaults;
@@ -71,6 +72,7 @@ public class WizardAppearance : NetworkBehaviour
     private void Awake()
     {
         health = GetComponent<Health>();
+        ultimate = GetComponent<PlayerUltimate>();
         movement = GetComponent<RelativeMovement>();
         if (visualRoot != null)
         {
@@ -129,7 +131,7 @@ public class WizardAppearance : NetworkBehaviour
         if (dead != wasDead)
             for (int i = 0; i < bodyColliders.Length; i++)
                 if (bodyColliders[i] != null) bodyColliders[i].enabled = !dead && colliderDefaults[i];
-        visualRoot.gameObject.SetActive(!dead);
+        visualRoot.gameObject.SetActive(!dead && (ultimate == null || !ultimate.HasForm));
         wasDead = dead;
     }
     // сглаживаем поворот головы и отставание посоха; направление взгляда отправляем не чаще десяти раз в секунду.
@@ -139,7 +141,7 @@ public class WizardAppearance : NetworkBehaviour
         if (health != null && health.IsDead) { poseReady = false; castGesture = WizardCastGesture.None; return; }
         float bodyYaw = transform.eulerAngles.y;
         float targetYaw = lookYaw;
-        if (isOwned && movement != null && movement.ViewCamera != null)
+        if (isOwned && movement != null && movement.ViewCamera != null && !movement.IsUltimateRooted)
         {
             targetYaw = movement.ViewCamera.transform.eulerAngles.y;
             if (NetworkTime.time >= nextLookSend && (!poseReady || Mathf.Abs(Mathf.DeltaAngle(lastSentYaw, targetYaw)) > .5f))
@@ -352,9 +354,10 @@ public class WizardAppearance : NetworkBehaviour
         if (float.IsNaN(yaw) || float.IsInfinity(yaw)) return;
         lookYaw = Mathf.Repeat(yaw, 360);
     }
-    // окрашиваем мантию, шляпу и кристалл через блоки свойств, не изменяя общие материалы.
+    // окрашиваем ткань и наконечник посоха, не изменяя общие материалы других игроков.
     public void Tint(Color teamColor)
     {
+        GetComponent<WizardCosmetics>()?.Tint(teamColor);
         if (visualRoot == null) return;
         foreach (Renderer renderer in visualRoot.GetComponentsInChildren<Renderer>(true))
         {
@@ -366,7 +369,7 @@ public class WizardAppearance : NetworkBehaviour
                 renderer.SetPropertyBlock(block);
             }
             // посох состоит из одного меша с отдельными материалами дерева, металла и кристалла.
-            // окрашиваем только кристалл, сохраняя исходные цвета дерева и золотой отделки.
+            // Цвет игрока меняет только кристалл; дерево и металл сохраняют свой цвет.
             Material[] materials = renderer.sharedMaterials;
             for (int i = 0; i < materials.Length; i++)
                 if (materials[i] != null && materials[i].name.Contains("white crystal"))

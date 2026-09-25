@@ -1,0 +1,23 @@
+{"items":[
+ {"id":"hat_ember","name":"Шляпа угольного мага","category":"hat","price":100,"style":1},
+ {"id":"hat_astral","name":"Шляпа астроманта","category":"hat","price":250,"style":3},
+ {"id":"hat_frost","name":"Корона северного мага","category":"hat","price":400,"style":2},
+ {"id":"staff_ember","name":"Посох тлеющего сердца","category":"staff","price":150,"style":1},
+ {"id":"staff_frost","name":"Посох ледяного кристалла","category":"staff","price":300,"style":2},
+ {"id":"staff_astral","name":"Посох орбит","category":"staff","price":450,"style":3},
+ {"id":"body_ember","name":"Мантия угольного мага","category":"body","price":200,"style":1},
+ {"id":"body_frost","name":"Одеяние северного мага","category":"body","price":350,"style":2},
+ {"id":"body_astral","name":"Кафтан астроманта","category":"body","price":500,"style":3},
+ {"id":"book_air","name":"Книга Воздуха","category":"book","price":1000,"style":1},
+ {"id":"book_ice","name":"Книга Льда","category":"book","price":1500,"style":2},
+ {"id":"color_red","name":"Красный","category":"color","price":0,"style":1},
+ {"id":"color_blue","name":"Синий","category":"color","price":0,"style":2},
+ {"id":"color_green","name":"Зелёный","category":"color","price":0,"style":3},
+ {"id":"color_yellow","name":"Жёлтый","category":"color","price":100,"style":4},
+ {"id":"color_cyan","name":"Голубой","category":"color","price":100,"style":5},
+ {"id":"color_magenta","name":"Розовый","category":"color","price":200,"style":6},
+ {"id":"color_purple","name":"Фиолетовый","category":"color","price":200,"style":7},
+ {"id":"color_lime","name":"Салатовый","category":"color","price":200,"style":8},
+ {"id":"color_orange","name":"Оранжевый","category":"color","price":200,"style":9},
+ {"id":"color_white","name":"Белый","category":"color","price":200,"style":10}
+]}

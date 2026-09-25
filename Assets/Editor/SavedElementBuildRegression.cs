@@ -86,7 +86,7 @@ public static class SavedElementBuildRegression
             var waterCard = new GameObject("Water card", typeof(RectTransform), typeof(UnityEngine.UI.Text));
             waterCard.transform.SetParent(catalog.transform, false);
             var waterRecipe = waterCard.GetComponent<UnityEngine.UI.Text>();
-            catalog.Configure(title.GetComponent<UnityEngine.UI.Text>(), hint.GetComponent<UnityEngine.UI.Text>(),
+            catalog.Configure(
                 Array.Empty<UnityEngine.UI.Text>(), Array.Empty<UnityEngine.UI.Button>(), scroll,
                 new System.Collections.Generic.List<ShelfSpellCatalogUI.SpellCard> { new ShelfSpellCatalogUI.SpellCard {
                     spell = UnityEditor.AssetDatabase.LoadAssetAtPath<Spell>("Assets/Scripts/Spells/Elemental/WaterBolt.asset"),

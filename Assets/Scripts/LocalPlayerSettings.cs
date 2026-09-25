@@ -6,7 +6,14 @@ public class LocalPlayerSettings : MonoBehaviour
     public static LocalPlayerSettings Instance { get; private set; }
 
     public PlayerCosmeticSettings CosmeticSettings { get; private set; }
-    public ElementLoadout Loadout { get; private set; }
+    public PlayerColorId SelectedColor => ShopCatalog.Allows(EconomyClient.Instance?.Profile, CosmeticSettings.preferredColor)
+        ? CosmeticSettings.preferredColor : PlayerColorId.Blue;
+    private ElementLoadout savedLoadout;
+    public ElementLoadout Loadout
+    {
+        get => ShopCatalog.Allows(EconomyClient.Instance?.Profile, savedLoadout) ? savedLoadout : ElementLoadout.Default;
+        private set => savedLoadout = value;
+    }
     public SavedElementBuilds SavedBuilds { get; private set; }
     public event System.Action<PlayerColorId> PreferredColorChanged;
 
@@ -23,10 +30,10 @@ public class LocalPlayerSettings : MonoBehaviour
         Loadout = new ElementLoadout
         {
             q = (MagicElement)PlayerPrefs.GetInt("Elements.Q", 0),
-            e = (MagicElement)PlayerPrefs.GetInt("Elements.E", 1),
-            r = (MagicElement)PlayerPrefs.GetInt("Elements.R", 2)
+            e = (MagicElement)PlayerPrefs.GetInt("Elements.E", 3),
+            r = (MagicElement)PlayerPrefs.GetInt("Elements.R", 4)
         };
-        if (!Loadout.IsValid) Loadout = ElementLoadout.Default;
+        if (!savedLoadout.IsValid) Loadout = ElementLoadout.Default;
         SavedBuilds = new SavedElementBuilds();
 
         CosmeticSettings = new PlayerCosmeticSettings
@@ -41,7 +48,7 @@ public class LocalPlayerSettings : MonoBehaviour
     // запоминаем желаемый цвет; свободный цвет в матче окончательно назначит сервер.
     public void SetPreferredColor(PlayerColorId colorId)
     {
-        if (colorId == PlayerColorId.None || !System.Enum.IsDefined(typeof(PlayerColorId), colorId)) return;
+        if (Mirror.NetworkClient.active || Mirror.NetworkServer.active || !ShopCatalog.Allows(EconomyClient.Instance?.Profile, colorId)) return;
         if (CosmeticSettings.preferredColor == colorId) return;
         CosmeticSettings.preferredColor = colorId;
         PlayerPrefs.SetInt("Player.Color", (int)colorId);
@@ -80,7 +87,7 @@ public class LocalPlayerSettings : MonoBehaviour
     // Применяем билд целиком: последовательные Assign могли бы переставить уже выбранные слоты.
     public bool ApplyLoadout(ElementLoadout updated)
     {
-        if (Mirror.NetworkClient.active || Mirror.NetworkServer.active || !updated.IsValid) return false;
+        if (Mirror.NetworkClient.active || Mirror.NetworkServer.active || !ShopCatalog.Allows(EconomyClient.Instance?.Profile, updated)) return false;
         Loadout = updated;
         PlayerPrefs.SetInt("Elements.Q", (int)updated.q);
         PlayerPrefs.SetInt("Elements.E", (int)updated.e);
